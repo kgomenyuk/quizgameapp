@@ -16,7 +16,9 @@ class Game{
     gameId="";
 
     // paticipants
-    // {name of team, [players:{id}]}
+    /**
+     * @type {[{id:number, name:string, players:[number]}]}
+     */
     teams=[];
 
     // owner
@@ -61,11 +63,17 @@ class Game{
         teamsScore:[]
     };
 
-    // 
+    /** questions in current round
+     * @type {[[{answered:boolean, ts:Date, points: number, teamNumber: number, question: number}]]}
+     */
     questions=[];
 
     question = 0;
 
+    /**
+     * @type {[{maessage:string, time:Date, team: number}]}
+     */
+    eventlog=[];
     // initialize the game
     initialize(numberOfTeams, membersLimit, rounds, owner){
         this.ownerId = owner;
@@ -106,13 +114,27 @@ class Game{
     }
 
     //teams
+    /**
+     * 
+     * @returns { [{id:number, playersCount:number, name:string, players:[number]}] }
+     */
     getTeams(){
         return this.teams.map(x=>{return {
             id:x.id,
             playersCount: x.players.length,
-            name:x.name
+            name:x.name,
+            players: x.players
         };});
     }
+
+    /**
+     * 
+     * @param {{message:string, team:number}} m
+     */
+    log=(m)=>{
+        m.time = new Date();
+        this.eventlog.push(m);
+    };
 
     getFinalScore(){
         return this.finalScore;
@@ -211,19 +233,57 @@ class Game{
     }
 
     // finish round and detect the winner
+    /**
+     * 
+     * @returns { [{teamNumber:number, points:number, isWinner: boolean, answered:boolean, questionsScore:[{ points:number, answered:boolean }]}] }
+     */
     finishRound = () => {
         if(this.roundFinished == true)return;
         this.roundFinished = true;
+
+        /**
+         * @type {[{answered:boolean, ts:Date, points:number, teamNumber:number, question:number}]}
+         */
+        var questionStats = [];
+        this.teams.forEach(t=>{
+            // add combinations with questions
+            var qa = [];
+            for (let index = 0; index <= this.question; index++) {
+                qa.push({ 
+                    question: index,
+                    answered:false,
+                    ts:null,
+                    points: 0,
+                    teamNumber: t.id
+                });
+            }
+            questionStats = questionStats.concat(qa);
+        });
+
+        questionStats.forEach(qs=>{
+            // if team & question were already mentioned in the questions array, then skip
+            if(this.questions[qs.question]!=null){
+                var qx = this.questions[qs.question].find(x=>x.teamNumber == qs.teamNumber);
+                if(qx == null){
+                    this.questions[qs.question].push(qs); // add missing combination
+                }
+            }
+        });
+
         var resultOfRound = this
             .questions
             .flat(1)
             .reduce((p, x)=>{
-                var team = p.teams.find(t=>t.id == x.teamNumber)
+                var team = p.teams.find(t=>t.teamNumber == x.teamNumber)
                 team.points += x.points;
+                team.questionsScore.push({points:x.points, answered:x.answered});
+                if(x.answered == true){
+                    team.answered = true;
+                }
                 
                 return p;
             }, {
-                teams:this.teams.map(x=>{return{id:x.id, points:0};})
+                teams:this.teams.map(x=>{return { teamNumber:x.id, name:x.name, players:x.players, answered:false, points:0, questionsScore:[] };})
             });
         
         resultOfRound.teams.sort((a,b)=>b.points - a.points);
@@ -238,11 +298,13 @@ class Game{
         // fill the score object
         resultOfRound.teams
             .forEach(x=>{
-                var scoreElement = this.score[this.round].find(s=>s.id == x.id);
+                var scoreElement = this.score[this.round].find(s=>s.id == x.teamNumber);
                 scoreElement.answered = true;
                 scoreElement.isWinner = x.isWinner == true;
                 scoreElement.points = x.points;
             });
+
+        return resultOfRound.teams;
 
     }
 
@@ -262,7 +324,8 @@ class Game{
             answered:true,
             ts:new Date(),
             points: wins==true? 1 : -1,
-            teamNumber: teamNumber
+            teamNumber: teamNumber,
+            question:this.question
         });
     }
 
@@ -287,6 +350,44 @@ class Game{
 
         return false;
     }
+
+
+    /**
+     * 
+     * @param {[{teamNumber:number, heading:string,message:string}]} roundResults 
+     * @returns 
+     */
+    printRoundResults = (roundResults)=>{
+        const wTeam = roundResults.find(x=>x.isWinner == true);
+        var winningTeamId = null;
+        if(wTeam!=null){
+            winningTeamId = wTeam.teamNumber;
+        }
+        
+        const output = roundResults.map(x=>{
+            return {
+                teamNumber: x.teamNumber,
+                points: x.points,
+                rowId:(x.teamNumber + 1) + " (" + x.points + ")",
+                cells:x.questionsScore.map(q=>{
+                    return{
+                        points: (q.answered==true ? q.points+"" : "--").padStart(4, " ")
+                    }
+                })
+            };
+        })
+        .map(x=>{
+            return {
+                teamNumber:x.teamNumber,
+                heading: winningTeamId == null ?  "No winner" : (
+                    x.teamNumber == winningTeamId ? "Your team wins" : `${wTeam.name} wins`
+                ),
+                message: x.rowId.padEnd(6, " ") + x.cells.map(x=>x.points).join("")
+            }
+        });
+        
+        return output;
+    };
 }
 
 module.exports = {

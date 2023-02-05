@@ -172,3 +172,63 @@ test('Game score calculations are OK',()=>{
 
    expect(g.round).toBe(1);
 });
+
+test('Score after round includes correct info about questions answered', () => { 
+   var g = new Game();
+
+   g.initialize(2, 4, 2, 12345); 
+
+   // admin asks the bot to send the code
+   var code = g.getCode();
+
+   // players register with the code
+   g.addPlayer(code, 1, 3456);
+   g.addPlayer(code, 2, 342);
+
+   // 
+   g.nextRound();
+   // team 2 did not give an answer
+   g.postScore(1, true);
+   var res1 = g.finishRound();
+   expect(res1).not.toBeNull();
+   
+   // 2 teams -> 2 results
+   expect(res1).toHaveLength(2);
+ 
+   expect(res1[0].answered).toBe(true);
+   expect(res1[1].answered).toBe(false);
+
+   g.nextRound();
+   
+});
+
+test('Check the output after round was finished', () => { 
+   var g = new Game();
+
+   g.initialize(2, 4, 2, 12345); 
+
+   // admin asks the bot to send the code
+   var code = g.getCode();
+
+   // players register with the code
+   g.addPlayer(code, 1, 3456);
+   g.addPlayer(code, 2, 342);
+
+   // 
+   g.nextRound();
+   // team 2 did not give an answer
+   g.postScore(1, true);
+   var res1 = g.finishRound();
+   expect(res1).not.toBeNull();
+   
+   // 2 teams -> 2 results
+   expect(res1).toHaveLength(2);
+ 
+   expect(res1[0].answered).toBe(true);
+   expect(res1[1].answered).toBe(false);
+
+   var printed = g.printRoundResults(res1);
+
+   g.nextRound();
+   
+});
