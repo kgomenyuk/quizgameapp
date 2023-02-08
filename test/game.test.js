@@ -227,7 +227,8 @@ test('Check the output after round was finished', () => {
    expect(res1[0].answered).toBe(true);
    expect(res1[1].answered).toBe(false);
 
-   var printed = g.printRoundResults(res1);
+   var messages = g.printRoundResults(res1);
+   expect(messages.length).toBe(2);
 
    g.nextRound();
    

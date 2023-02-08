@@ -36,12 +36,12 @@ class Game{
     // round was finished
     roundFinished = false;
 
-    // judge
+    // Quiz Master
     /**
      * @type { string }
      */
-    judgeId = null;
-    judgeCandidateId = null;
+    qmId = null;
+    qmCandidateId = null;
     // current team
     answeringTeam = null;
 
@@ -149,6 +149,14 @@ class Game{
      */
     addPlayer = (code, teamNumber, id) => {
         if(code == this.gameId){
+            // check if user is already in another team.
+            var userTeam = this.teams.find(t=>t.players.indexOf(id)>-1);
+            if(userTeam!=null){
+                // delete
+                userTeam.players.splice(userTeam.players.indexOf(id),1);
+            }else{
+                // no team
+            }
             this.teams.find(x=>x.id == teamNumber).players.push(id);
         }else{
             throw new Error("Wrong code");
@@ -335,16 +343,16 @@ class Game{
      */
     confirmRequestFromJUser = (accept) => {
         
-        if(accept == true && this.judgeCandidateId != null){
-            this.judgeId = this.judgeCandidateId;
-            this.judgeIsSet = true;
+        if(accept == true && this.qmCandidateId != null){
+            this.qmId = this.qmCandidateId;
+            this.qmIsSet = true;
             
             return true;
         }
 
         if(accept == false){
-            this.judgeId = null;
-            this.judgeIsSet = false;
+            this.qmId = null;
+            this.qmIsSet = false;
             return false;
         }
 
@@ -368,25 +376,32 @@ class Game{
             return {
                 teamNumber: x.teamNumber,
                 points: x.points,
-                rowId:(x.teamNumber + 1) + " (" + x.points + ")",
+                rowId:x.name  + " (" + x.points + ")",
                 cells:x.questionsScore.map(q=>{
                     return{
-                        points: (q.answered==true ? q.points+"" : "--").padStart(4, " ")
+                        points: (q.answered==true ? q.points + "" : "--").padStart(4, " ")
                     }
                 })
             };
-        })
-        .map(x=>{
-            return {
-                teamNumber:x.teamNumber,
-                heading: winningTeamId == null ?  "No winner" : (
-                    x.teamNumber == winningTeamId ? "Your team wins" : `${wTeam.name} wins`
-                ),
-                message: x.rowId.padEnd(6, " ") + x.cells.map(x=>x.points).join("")
-            }
         });
+
+        const table = output
+            .map(x=>x.rowId.padEnd(7, " ") + x.cells.map(x=>x.points).join(""))
+            .join("\n");
         
-        return output;
+        const result = output
+            .map(x=>{
+                return {
+                    teamNumber:x.teamNumber,
+                    heading: winningTeamId == null ?  "No winner" : (
+                        x.teamNumber == winningTeamId ? "Your team wins" : `${wTeam.name} wins`
+                    ),
+                    message: table,
+                    isWinner:(winningTeamId == x.teamNumber)
+                }
+            });
+        
+        return result;
     };
 }
 

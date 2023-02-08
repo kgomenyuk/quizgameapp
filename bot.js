@@ -1,5 +1,6 @@
 const { Game } = require("./game");
 const { Telegraf, Context } = require("telegraf");
+const { GameManager } = require("./game_manager");
 
 class GameBot {
     // existing games
@@ -27,7 +28,8 @@ class GameBot {
         tg.command("ngame", this.startGame);
         tg.command("control", this.setManager);
         tg.command("play", this.setPlayer);
-        //tg.command("begin", this.beginCurrentGame);// only owner can start the game
+        //tg.command("a", this.setAudience);
+        tg.command("help", this.sendHelp);
         tg.on("callback_query", async (ctx)=>{
             const d = ctx.callbackQuery.data;
             const cmds = d.split("!");
@@ -36,7 +38,7 @@ class GameBot {
                     // player selected a team
                     await this.setPlayersTeam(ctx, cmds[1]);
                     break;
-                case "judge":
+                case "qm":
                     await this.setConfirmation(ctx, cmds[1], cmds[2]);
                     break;
                 case "answer":
@@ -65,6 +67,14 @@ class GameBot {
         await tg.launch();
     }
 
+    sendHelp = async (ctx)=>{
+        // show help text
+        await ctx.reply(
+        "/ngame  - create a new game\n" +
+        "/play Secret - register in a game\n" +
+        "/control Secret - become a quiz master")
+        ;
+    };
     /**
      * 
      * @param { Context } ctx 
@@ -82,12 +92,12 @@ class GameBot {
         const game = this.dictGames[my.game];
 
         // check user and sed message with buttons
-        if(game.judgeId == ctx.callbackQuery.from.id){
+        if(game.qmId == ctx.callbackQuery.from.id){
             game.setAnsweringTeam(teamId);
             const teamName = game.getTeams().find(x=>x.id == teamId).name;
             await ctx.editMessageReplyMarkup({});
-            await ctx.reply(teamName + " will answer question №" + (game.question + 1));
-            await ctx.reply("Review their answer:", 
+            await ctx.reply(teamName + " will answer question №" + (game.question + 1) + "\n" 
+                +"Review their answer:", 
             {
                 reply_markup:{
                     inline_keyboard:[
@@ -120,13 +130,14 @@ class GameBot {
             return;
         }
         const game = this.dictGames[my.game];
-        if(game.judgeId!=ctx.callbackQuery.from.id){
+        if(game.qmId!=ctx.callbackQuery.from.id){
             await ctx.reply("Game is closed");
             return;
         }
         var teams = game.getTeams();
         
-        game.finishRound();
+        var manager = new GameManager(game, ctx.telegram);
+        await manager.finishRound();
         game.finishGame();
 
         var teams = game.getTeams();
@@ -142,20 +153,28 @@ class GameBot {
         var mtext = 
             game.finalScore.teamsScore.map((x, i)=>{
                 var t = teams.find(t=>t.id == x.id);
-                return i + ". " + (x.isWinner==true ? " !winner! " : "") + t.name + " R:" + x.roundsWon + " P:" + x.points;
+                return (x.isWinner==true ? " W " : "").padStart(2, " ") + 
+                    t.name + 
+                    (" R:" + x.roundsWon).padStart(5, " ") + 
+                    (" P:" + x.points).padStart(5, " ");
             })
             .join("\n");
         
         const msg = await ctx.telegram.sendMessage(
-            game.judgeId, 
+            game.qmId, 
             mtext
             );
         
-        delete this.dictUserData["u" + game.judgeId];
+        delete this.dictUserData["u" + game.qmId];
 
         await ctx.answerCbQuery();
     };
 
+    /**
+     * 
+     * @param {Context} ctx 
+     * @returns 
+     */
     nextRound = async (ctx) => {
         var my = this.dictUserData["u" + ctx.callbackQuery.from.id];
         if(my == null || my.game == null){
@@ -163,13 +182,15 @@ class GameBot {
             return;
         }
         const game = this.dictGames[my.game];
-        if(game.judgeId!=ctx.callbackQuery.from.id){
+        if(game.qmId!=ctx.callbackQuery.from.id){
             await ctx.reply("Game is closed");
             return;
         }
         var teams = game.getTeams();
         
-        game.finishRound();
+        var manager = new GameManager(game, ctx.telegram);
+        await manager.finishRound();
+        
         var info = game.nextRound();
         if(info == "LR")
         {
@@ -184,7 +205,7 @@ class GameBot {
         })
         .map(b=>[b]);
         const msg = await ctx.telegram.sendMessage(
-            game.judgeId, 
+            game.qmId, 
             "Round " + (game.round+1) + ", Question " + (game.question+1) + ". Who will answer?",
             {
                 reply_markup:{
@@ -192,7 +213,7 @@ class GameBot {
                         teamsKb
                 }
             });
-        var my = this.dictUserData["u" + game.judgeId];
+        var my = this.dictUserData["u" + game.qmId];
         my.msgId = msg.message_id;
 
         await ctx.answerCbQuery();
@@ -211,7 +232,7 @@ class GameBot {
             return;
         }
         const game = this.dictGames[my.game];
-        if(game.judgeId!=ctx.callbackQuery.from.id){
+        if(game.qmId!=ctx.callbackQuery.from.id){
             await ctx.reply("Game is closed");
             return;
         }
@@ -226,7 +247,7 @@ class GameBot {
         })
         .map(b=>[b]);
         const msg = await ctx.telegram.sendMessage(
-            game.judgeId, 
+            game.qmId, 
             "Round " + (game.round+1) + ", Question " + (game.question+1) + ". Who will answer?",
             {
                 reply_markup:{
@@ -234,7 +255,7 @@ class GameBot {
                         teamsKb
                 }
             });
-        var my = this.dictUserData["u" + game.judgeId];
+        var my = this.dictUserData["u" + game.qmId];
         my.msgId = msg.message_id;
 
         await ctx.answerCbQuery();
@@ -255,7 +276,7 @@ class GameBot {
         }
         const tid = Number(teamId);
         const game = this.dictGames[my.game];
-        if(game.judgeId!=ctx.callbackQuery.from.id){
+        if(game.qmId!=ctx.callbackQuery.from.id){
             await ctx.reply("Game is closed");
             return;
         }
@@ -280,7 +301,7 @@ class GameBot {
                     }
                     
                     var msg = await ctx.telegram.sendMessage(
-                        game.judgeId, 
+                        game.qmId, 
                         aTeam.name + " won!",
                         {
                             reply_markup:{
@@ -288,7 +309,7 @@ class GameBot {
                                     kb
                             }
                         });
-                    var my = this.dictUserData["u" + game.judgeId];
+                    var my = this.dictUserData["u" + game.qmId];
                     my.msgId = msg.message_id;
                 
                 break;
@@ -307,7 +328,7 @@ class GameBot {
                     [{text:"Finish Round", callback_data:"nround"}]
                 ]);
                 var msg = await ctx.telegram.sendMessage(
-                    game.judgeId, 
+                    game.qmId, 
                     aTeam.name + " has failed. Who will try one more time?",
                     {
                         reply_markup:{
@@ -315,7 +336,7 @@ class GameBot {
                                 teamsKb
                         }
                     });
-                var my = this.dictUserData["u" + game.judgeId];
+                var my = this.dictUserData["u" + game.qmId];
                 my.msgId = msg.message_id;
                 
                 break;
@@ -343,8 +364,8 @@ class GameBot {
         switch(actionCode){
             case "confirm":
                 game.confirmRequestFromJUser(true);
-                if(game.judgeCandidateId!=null){
-                    await ctx.telegram.sendMessage(game.judgeCandidateId, "Request was confirmed");
+                if(game.qmCandidateId!=null){
+                    await ctx.telegram.sendMessage(game.qmCandidateId, "Request was confirmed");
                     // now let's allow user to control the game
                     game.nextRound();
                     var teams = game.getTeams();
@@ -356,7 +377,7 @@ class GameBot {
                     })
                     .map(b=>[b]);
                     const msg = await ctx.telegram.sendMessage(
-                        game.judgeId, 
+                        game.qmId, 
                         "Round " + (game.round+1) + ", Question " + (game.question + 1) + ". Who will answer?",
                         {
                             reply_markup:{
@@ -364,15 +385,15 @@ class GameBot {
                                     teamsKb
                             }
                         });
-                    const my = this.dictUserData["u" + game.judgeId];
+                    const my = this.dictUserData["u" + game.qmId];
                     my.msgId = msg.message_id;
                 }
                 await ctx.answerCbQuery();
                 break;
             case "reject":
                 game.confirmRequestFromJUser(false);
-                if(game.judgeCandidateId!=null){
-                    await ctx.telegram.sendMessage(game.judgeCandidateId, "Request was rejected");
+                if(game.qmCandidateId!=null){
+                    await ctx.telegram.sendMessage(game.qmCandidateId, "Request was rejected");
                 }
                 await ctx.answerCbQuery();
                 break;
@@ -395,18 +416,19 @@ class GameBot {
         //}
         
         if(game != null){
-            game.judgeCandidateId = ctx.message.from.id;
+            if(game.qmCandidateId!=null && game.qmCandidateId!=0){return;}
+            game.qmCandidateId = ctx.message.from.id;
             const name = 
                 (ctx.message.from.username==null?"":(ctx.message.from.username+" ")) +
                 (ctx.message.from.first_name==null?"":(ctx.message.from.first_name+" ")) +
                 (ctx.message.from.last_name==null?"":(ctx.message.from.last_name + " "));
-            game.judgeIsSet = false;
-            await ctx.telegram.sendMessage(game.ownerId, "Please, confirm that user " + name + " will judge the game", {
+            game.qmIsSet = false;
+            await ctx.telegram.sendMessage(game.ownerId, "Please, confirm that user " + name + " will manage the game", {
                 reply_markup:{
                     inline_keyboard:[
                         [
-                            { text:"Confirm", callback_data:`judge!${code}!${"confirm"}` },
-                            { text:"Reject", callback_data:`judge!${code}!${"reject"}` }
+                            { text:"Confirm", callback_data:`qm!${code}!${"confirm"}` },
+                            { text:"Reject", callback_data:`qm!${code}!${"reject"}` }
                         ]
                     ]
                 }

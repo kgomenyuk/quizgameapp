@@ -39,7 +39,7 @@ class GameManager{
             try{
                 if(team.playersCount>0){
                     for (const t of team.players) {
-                        await this.telegram.sendMessage(t, team.name + "!\n" + text);
+                        await this.telegram.sendMessage(t, text);
                     }
                     this.game.log({ team:team.id, message:"notification sent" });
                 }
@@ -49,6 +49,38 @@ class GameManager{
                 this.game.log({ team:team.id, message:"notification not sent - exception" });
                 return false;
             }
+        }
+    }
+
+    notifyOwner = async(text)=>{
+        try{
+            if(this.game.ownerId > 0){
+                    await this.telegram.sendMessage(this.game.ownerId, text);
+                
+                this.game.log({ message:"notification sent to owner" });
+            }else{
+                this.game.log({  message:"notification not sent - owner is unknown" });
+            }
+            return true;
+        }catch(e){
+            this.game.log({ message:"notification not sent to owner - exception" });
+            return false;
+        }
+    }
+
+    notifyQM = async(text)=>{
+        try{
+            if(this.game.qmId > 0){
+                    await this.telegram.sendMessage(this.game.qmId, text);
+                
+                this.game.log({ message:"notification sent to quiz master" });
+            }else{
+                this.game.log({  message:"notification not sent - quiz master is unknown" });
+            }
+            return true;
+        }catch(e){
+            this.game.log({ message:"notification not sent to quiz master - exception" });
+            return false;
         }
     }
 
@@ -70,38 +102,40 @@ class GameManager{
      */
     finishRound = async () => {
         const roundResults = this.game.finishRound();
+        const printed = this.game.printRoundResults(roundResults);
+
         const wTeam = roundResults.find(x=>x.isWinner == true);
         var winningTeamId = null;
         if(wTeam!=null){
             winningTeamId = wTeam.teamNumber;
         }
-        
-        const output = roundResults.map(x=>{
-            return {
-                rowId:(x.teamNumber + 1) + " (" + x.points + ")",
-                cells:x.questionsScore.map(q=>{
-                    return{
-                        points: (q.answered==true?q.points+"":"--").padStart(4)
-                    }
-                })
-            };
-        })
-        .map(x=>x.rowId.padEnd(6) + x.cells.join(""));
+       
         const teams = this.game.getTeams();
 
         for (const team of teams) {
-            var headerText = "";
-            if(winningTeamId!=null){
-                if(team.id == winningTeamId){
-                    headerText = "Your team wins";
-                }
-                else{
-                    headerText = `${team.name} wins`
-                }
-            }else{
-                headerText = "No winner";
-            }
-            await this.notifyTeam(team.id, "Round " + (this.game.round +1) + ". Results: ");
+            const tResult = printed.find(x=>x.teamNumber == team.id);
+            await this.notifyTeam(team.id, "Round " + (this.game.round +1) + ". Results: \n"
+                + tResult.heading + "\n"
+                + "-------------\n"
+                + tResult.message);
         }
+
+        const message = printed.find(x=>x.isWinner == false);
+        if(message!=null){
+            var text = "Round " + (this.game.round +1) 
+                + ". Results: \n"
+                + message.heading + "\n"
+                + "-------------\n"
+                + message.message;
+            await this.notifyOwner(text);
+            if(this.game.qmId!=this.game.ownerId){
+                await this.notifyQM(text);
+            }
+        } 
+
     }
 }
+
+module.exports = {
+    GameManager
+};
