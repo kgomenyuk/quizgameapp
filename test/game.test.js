@@ -233,3 +233,35 @@ test('Check the output after round was finished', () => {
    g.nextRound();
    
 });
+
+
+test('Finish game should finish the round as well', () => { 
+   var g = new Game();
+
+   g.initialize(2, 2, 2, 12345); 
+
+   // admin asks the bot to send the code
+   var code = g.getCode();
+
+   // players register with the code
+   g.addPlayer(code, 1, 3456);
+   g.addPlayer(code, 2, 342);
+
+   // 
+   g.nextRound();
+   // team 2 did not give an answer
+   g.postScore(1, true);
+   var res1 = g.finishRound();
+
+   g.nextRound();
+
+   g.postScore(2, true);
+   expect(g.round).toBe(1);
+   expect(g.gameIsFinished).toBe(false);
+
+   g.finishRound();
+   g.finishGame();
+   expect(g.roundFinished).toBe(true);
+   
+   expect(g.gameIsFinished).toBe(true);
+});

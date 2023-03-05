@@ -74,6 +74,13 @@ class Game{
      * @type {[{maessage:string, time:Date, team: number}]}
      */
     eventlog=[];
+
+
+    audience = [];
+    dictAudience = {};
+    // all rounds, specific questions
+    individualScore = {};
+
     // initialize the game
     initialize(numberOfTeams, membersLimit, rounds, owner){
         this.ownerId = owner;
@@ -206,6 +213,9 @@ class Game{
     finishGame(){
         if(this.gameIsFinished == true){
             return;
+        }
+        if(this.roundFinished == false){
+            throw new Error("Round was not finished yet");
         }
         this.gameIsFinished = true;
 
@@ -341,24 +351,24 @@ class Game{
      * accept request
      * @type { boolean } accept
      */
-    confirmRequestFromJUser = (accept) => {
-        
+    confirmRequestFromPMUser = (accept) => {
+        // request was accepted
         if(accept == true && this.qmCandidateId != null){
             this.qmId = this.qmCandidateId;
             this.qmIsSet = true;
-            
             return true;
         }
 
+        // request was rejected
         if(accept == false){
             this.qmId = null;
             this.qmIsSet = false;
+            this.qmCandidateId = null;
             return false;
         }
 
         return false;
     }
-
 
     /**
      * 

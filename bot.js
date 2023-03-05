@@ -7,18 +7,23 @@ class GameBot {
     /**
      * @type {[Game]}
      */
-    allGames=[];
+    allGames = [];
 
     /**
      * @type {Object<string, Game>} available game objects
      */
-    dictGames={};
+    dictGames = {};
 
-    userData=[];
+    userData = [];
     /**
-     * @type { Object<string, {game:string, id:number, msgId:number}> }
+     * @type { Object<string, { game:string, id:number, msgId:number }> }
      */
-    dictUserData={};
+    dictUserData = {};
+
+    /**
+     * @type {Object<string, { secErrorsCount:number }>}
+     */
+    userErrors = {};
 
     startBot = async () => {
         const tg = new Telegraf(process.env["API_KEY"]);
@@ -28,7 +33,7 @@ class GameBot {
         tg.command("ngame", this.startGame);
         tg.command("control", this.setManager);
         tg.command("play", this.setPlayer);
-        //tg.command("a", this.setAudience);
+        tg.command("a", this.setAudience);
         tg.command("help", this.sendHelp);
         tg.on("callback_query", async (ctx)=>{
             const d = ctx.callbackQuery.data;
@@ -57,6 +62,9 @@ class GameBot {
                     // switch to the next round
                     await this.nextRound(ctx);
                     break;
+                case "fround":
+                    await this.beginFirstRound(ctx);
+                    break;
                 case "ngame":
                     // switch to the next round
                     await this.endGame(ctx);
@@ -65,16 +73,38 @@ class GameBot {
         })
         
         await tg.launch();
-    }
+    };
 
     sendHelp = async (ctx)=>{
         // show help text
         await ctx.reply(
         "/ngame  - create a new game\n" +
         "/play Secret - register in a game\n" +
-        "/control Secret - become a quiz master")
-        ;
+        "/control Secret - become a quiz master\n" +
+        "/a Secret - join the audience");
     };
+
+
+    /**
+     * @param { Context } ctx 
+     */
+    setAudience = async (ctx) => {
+        // register a new person as member of audience
+        const my = this.dictUserData["u" + ctx.callbackQuery.from.id];
+
+        if(my == null || my.game == null){
+            await ctx.reply("Game is closed");
+            return;
+        }
+        // ctx.message.date
+        const text = ctx.message.text;
+        const args = text.split(" ");
+        const code = args[1].substr(0, 5);
+        const game = this.dictGames[code];
+
+        game.addPlayer(code, ctx.message.from.id);
+    };
+
     /**
      * 
      * @param { Context } ctx 
@@ -142,18 +172,21 @@ class GameBot {
 
         var teams = game.getTeams();
 
+        var finalMessage = "";
         if(game.finalScore.hasWinner == false){
-            await ctx.reply("The winner cannot be determined");
+            finalMessage = "The winner cannot be determined";
         }else{
-            
             var team = teams.find(t=>t.id == game.finalScore.teamsScore[0].id);
-            await ctx.reply(team.name + " wins");
+            finalMessage = team.name + " wins";
         }
+        
+        await ctx.telegram.sendMessage(game.qmId, finalMessage);
+        await ctx.telegram.sendMessage(game.ownerId, finalMessage);
         
         var mtext = 
             game.finalScore.teamsScore.map((x, i)=>{
                 var t = teams.find(t=>t.id == x.id);
-                return (x.isWinner==true ? " W " : "").padStart(2, " ") + 
+                return (x.isWinner==true ? " W " : "").padStart(3, " ") + 
                     t.name + 
                     (" R:" + x.roundsWon).padStart(5, " ") + 
                     (" P:" + x.points).padStart(5, " ");
@@ -162,13 +195,69 @@ class GameBot {
         
         const msg = await ctx.telegram.sendMessage(
             game.qmId, 
-            mtext
+            "`"+mtext+"`",
+            {parse_mode:"Markdown"}
             );
         
         delete this.dictUserData["u" + game.qmId];
 
         await ctx.answerCbQuery();
     };
+
+
+    /**
+     * 
+     * @param {Context} ctx 
+     * @returns 
+     */
+    beginFirstRound = async (ctx) => {
+        var my = this.dictUserData["u" + ctx.callbackQuery.from.id];
+        if(my == null || my.game == null){
+            await ctx.reply("Game is closed");
+            return;
+        }
+        const game = this.dictGames[my.game];
+        if(game.ownerId!=ctx.callbackQuery.from.id){
+            await ctx.reply("Game is closed");
+            return;
+        }
+        var teams = game.getTeams();
+        
+        var info = game.nextRound();
+        if(info == "LR")
+        {
+            await ctx.reply("Last Round");
+        }
+
+        const teamsKb = teams.map(t=>{
+            return {
+                text: t.name, 
+                callback_data: "answer!" + t.id
+            };
+        })
+        .map(b=>[b]);
+        var msg = await ctx.telegram.sendMessage(
+            game.qmId, 
+            "Round " + (game.round+1) + ", Question " + (game.question+1) + ". Who will answer?",
+            {
+                reply_markup:{
+                    inline_keyboard:
+                        teamsKb
+                }
+            });
+        var my = this.dictUserData["u" + game.qmId];
+        my.msgId = msg.message_id;
+
+        var msg = await ctx.telegram.sendMessage(
+            game.qmId, 
+            "Round " + (game.round+1) + " begins");
+        var my = this.dictUserData["u" + game.ownerId];
+        my.msgId = msg.message_id;
+
+        await ctx.answerCbQuery();
+
+    };
+
 
     /**
      * 
@@ -182,7 +271,7 @@ class GameBot {
             return;
         }
         const game = this.dictGames[my.game];
-        if(game.qmId!=ctx.callbackQuery.from.id){
+        if(game.qmId!=ctx.callbackQuery.from.id && game.ownerId!=ctx.callbackQuery.from.id){
             await ctx.reply("Game is closed");
             return;
         }
@@ -218,7 +307,7 @@ class GameBot {
 
         await ctx.answerCbQuery();
 
-    }
+    };
 
     /**
      * 
@@ -259,7 +348,7 @@ class GameBot {
         my.msgId = msg.message_id;
 
         await ctx.answerCbQuery();
-    }
+    };
 
 
     /**
@@ -344,6 +433,8 @@ class GameBot {
         await ctx.answerCbQuery();
     };
 
+    
+
      /** accept or reject the request from judging user
      * 
      * @param { Context } ctx 
@@ -363,61 +454,56 @@ class GameBot {
         }
         switch(actionCode){
             case "confirm":
-                game.confirmRequestFromJUser(true);
+                game.confirmRequestFromPMUser(true);
                 if(game.qmCandidateId!=null){
-                    await ctx.telegram.sendMessage(game.qmCandidateId, "Request was confirmed");
-                    // now let's allow user to control the game
-                    game.nextRound();
-                    var teams = game.getTeams();
-                    const teamsKb = teams.map(t=>{
-                        return {
-                            text: t.name, 
-                            callback_data: "answer!" + t.id
-                        };
-                    })
-                    .map(b=>[b]);
-                    const msg = await ctx.telegram.sendMessage(
-                        game.qmId, 
-                        "Round " + (game.round+1) + ", Question " + (game.question + 1) + ". Who will answer?",
-                        {
-                            reply_markup:{
-                                inline_keyboard:
-                                    teamsKb
-                            }
-                        });
-                    const my = this.dictUserData["u" + game.qmId];
-                    my.msgId = msg.message_id;
+                    await ctx.telegram.sendMessage(game.qmCandidateId, "Your request was confirmed");
+
+                    //Send the start button 
+                    await ctx.telegram.sendMessage(game.ownerId, "Now it's time to start the game", {
+                        reply_markup:{
+                            inline_keyboard:[[
+                                {callback_data:"fround!" + game.code, text:"Start!"},
+                                {callback_data:"cround!" + game.code, text:"Cancel game"}
+                            ]]
+                        }
+                    });
                 }
                 await ctx.answerCbQuery();
                 break;
             case "reject":
-                game.confirmRequestFromJUser(false);
-                if(game.qmCandidateId!=null){
-                    await ctx.telegram.sendMessage(game.qmCandidateId, "Request was rejected");
+                const cid = game.qmCandidateId;
+                game.confirmRequestFromPMUser(false);
+                if(cid != null){
+                    await ctx.telegram.sendMessage(cid, "Sorry, your request was rejected");
                 }
                 await ctx.answerCbQuery();
                 break;
         }
-    }
+    };
 
      /**
      * 
      * @param { Context } ctx 
      */
     setManager = async (ctx) => {
-        // claim
+        // apply
         const text = ctx.message.text;
         const args = text.split(" ");
         const code = args[1].substr(0, 5);
         const game = this.dictGames[code];
+        // does the game exist?
+        if(game == null || args.length < 2){
+            return;
+        }
 
-        //if(this.dictUserData["u"+ctx.message.from.id] == null){
-            this.dictUserData["u"+ctx.message.from.id] = {game: code, id: ctx.message.from.id, msgId: null};
-        //}
+        this.dictUserData["u"+ctx.message.from.id] = {game: code, id: ctx.message.from.id, msgId: null};
         
         if(game != null){
-            if(game.qmCandidateId!=null && game.qmCandidateId!=0){return;}
-            game.qmCandidateId = ctx.message.from.id;
+            if(game.qmCandidateId!=null && game.qmCandidateId!=0){
+                await ctx.reply("The request has been already sent"); 
+                return;
+            }
+            game.qmCandidateId = ctx.message.from.id; // this person applies for a quiz master role
             const name = 
                 (ctx.message.from.username==null?"":(ctx.message.from.username+" ")) +
                 (ctx.message.from.first_name==null?"":(ctx.message.from.first_name+" ")) +
@@ -442,7 +528,7 @@ class GameBot {
             await ctx.reply("Cannot connect to game");
             return;
         }
-    }
+    };
 
      /**
      * 
@@ -483,7 +569,7 @@ class GameBot {
         }else{
             await ctx.reply("Game is not available");
         }
-     }
+     };
 
      /**
      * 
@@ -500,7 +586,7 @@ class GameBot {
         }
 
         await ctx.answerCbQuery();
-     }
+     };
 
     // start a new game with N teams
     /**
@@ -528,6 +614,9 @@ class GameBot {
 
         this.allGames.push(g);
         this.dictGames[code] = g;
+
+        // attach game to current user
+        this.dictUserData["u"+ctx.message.from.id] = { game: code, id: ctx.message.from.id, msgId: null };
 
         // send code to the chat
         await ctx.reply("Game code is: " + code);

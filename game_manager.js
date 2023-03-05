@@ -39,7 +39,7 @@ class GameManager{
             try{
                 if(team.playersCount>0){
                     for (const t of team.players) {
-                        await this.telegram.sendMessage(t, text);
+                        await this.telegram.sendMessage(t, text, {parse_mode:"Markdown"});
                     }
                     this.game.log({ team:team.id, message:"notification sent" });
                 }
@@ -55,7 +55,7 @@ class GameManager{
     notifyOwner = async(text)=>{
         try{
             if(this.game.ownerId > 0){
-                    await this.telegram.sendMessage(this.game.ownerId, text);
+                    await this.telegram.sendMessage(this.game.ownerId, text, {parse_mode:"Markdown"});
                 
                 this.game.log({ message:"notification sent to owner" });
             }else{
@@ -71,7 +71,7 @@ class GameManager{
     notifyQM = async(text)=>{
         try{
             if(this.game.qmId > 0){
-                    await this.telegram.sendMessage(this.game.qmId, text);
+                    await this.telegram.sendMessage(this.game.qmId, text, {parse_mode:"Markdown"});
                 
                 this.game.log({ message:"notification sent to quiz master" });
             }else{
@@ -115,18 +115,21 @@ class GameManager{
         for (const team of teams) {
             const tResult = printed.find(x=>x.teamNumber == team.id);
             await this.notifyTeam(team.id, "Round " + (this.game.round +1) + ". Results: \n"
-                + tResult.heading + "\n"
-                + "-------------\n"
-                + tResult.message);
+                + "**" + tResult.heading + "**\n"
+                + "`-------------\n"
+                + tResult.message
+                + "`",
+                );
         }
 
         const message = printed.find(x=>x.isWinner == false);
         if(message!=null){
             var text = "Round " + (this.game.round +1) 
                 + ". Results: \n"
-                + message.heading + "\n"
-                + "-------------\n"
-                + message.message;
+                + "**" + message.heading + "**\n"
+                + "`-------------\n"
+                + message.message
+                + "`";
             await this.notifyOwner(text);
             if(this.game.qmId!=this.game.ownerId){
                 await this.notifyQM(text);
