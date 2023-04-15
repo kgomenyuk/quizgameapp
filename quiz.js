@@ -34,6 +34,7 @@ class QuizOption {
 
     isCorrect = false;
 
+    optionNumber = 0;
 }
 
 /**
@@ -100,6 +101,10 @@ class Quiz {
         this.questionText = text;
     }
 
+    setId = (id) => {
+        this.id = id;
+    }
+
     /**
      * Add a new option
      * @param {number} optionId
@@ -112,12 +117,29 @@ class Quiz {
         const o = new QuizOption();
         o.id = id;
         o.text = optionText;
+        o.optionNumber = id;
         if(isCorrect!=null){
             o.isCorrect = isCorrect;
         }
         this.options.push(o);
 
         return id;
+    };
+
+    /**
+     * 
+     * @param {QuizOption} option 
+     */
+    addOptionObject = (option) =>{
+        if(Object.getPrototypeOf(option) == QuizOption.prototype){
+            this.options.push(option);
+            const id = this.options.length;
+            option.optionNumber = id;
+            this.options.push(option);
+            return id;
+        }else{
+            return null;
+        }
     };
 
     /**

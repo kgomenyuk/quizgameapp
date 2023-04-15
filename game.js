@@ -71,7 +71,7 @@ class Game{
     question = 0;
 
     /**
-     * @type {[{maessage:string, time:Date, team: number}]}
+     * @type {[{message:string, time:Date, team: number}]}
      */
     eventlog=[];
 
