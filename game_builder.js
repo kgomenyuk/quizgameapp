@@ -94,8 +94,17 @@ class QuizGameBuilder {
     build = async () => {
         var g = new QuizGame();
 
-        // create questions
-        g.setPlan(this.sections);
+        // add rounds
+        this.sections.forEach(r=>{
+          g.addRound(r.position, r.sectionId);
+          r.quizData
+            .sort((x, y) => x.position - y.position)
+            .forEach(q=>{
+              g.addQuiz(r.position, q.quiz);
+            });
+        });
+        
+        return g;
         
     }
 }
