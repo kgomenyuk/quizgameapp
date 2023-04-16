@@ -28,13 +28,34 @@ function randomStringUnique(txt) {
  * один вариант ответа в вопросе
  */
 class QuizOption {
+    /**
+     * text of an option to be shown to the user
+     */
     text = "";
 
+    /**
+     * Option identifier in the database
+     */
     id = 0;
 
     isCorrect = false;
 
+    /**
+     * Number inside the quiz
+     */
     optionNumber = 0;
+
+    /**
+     * 
+     * @param { Number } id 
+     * @param { String } text 
+     * @param { Boolean } isCorrect 
+     */
+    setMainData = (id, text, isCorrect) => {
+        this.id = id;
+        this.isCorrect = isCorrect;
+        this.text = text;
+    };
 }
 
 /**
@@ -56,10 +77,10 @@ class Quiz {
     /**
      * @type {[]}
      */
-    optionIds = [];
+    //optionIds = [];
     
     /**
-     * список правильных вариантов ответа
+     * list of correct option IDs
      */
     correctIds = [];
 
@@ -132,7 +153,7 @@ class Quiz {
      */
     addOptionObject = (option) =>{
         if(Object.getPrototypeOf(option) == QuizOption.prototype){
-            this.options.push(option);
+            // assigning positions to options
             const id = this.options.length;
             option.optionNumber = id;
             this.options.push(option);

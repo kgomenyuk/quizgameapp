@@ -21,7 +21,12 @@ class QuizGameBuilder {
         
     }
 
+    /**
+     * 
+     * @param {String} quizPlanId 
+     */
     setQuizPlan = async (quizPlanId) => {
+      // retrieve the plan from the database
         var quizPlan = await MQuizPlan.aggregate(
             [
                 {
@@ -30,17 +35,17 @@ class QuizGameBuilder {
                   }
                 }, {
                   $project: {
-                    quizSections: '$quizSections'
+                    quizSection: '$quizSections'
                   }
                 }, {
                   $unwind: {
-                    path: '$quizSections',
+                    path: '$quizSection',
                     preserveNullAndEmptyArrays: false
                   }
                 }, {
                   $lookup: {
                     from: 'quizzes', 
-                    localField: 'quizSections.quizData.quizId', 
+                    localField: 'quizSection.quizData.quizId', 
                     foreignField: 'quizId', 
                     as: 'quizCollection'
                   }
@@ -52,8 +57,9 @@ class QuizGameBuilder {
 
             const allQuizzes = quizPlan.flatMap(x=>x.quizCollection);
 
-            this.sections = quizPlan.flatMap(x=>x.quizSections);            
+            this.sections = quizPlan.flatMap(x=>x.quizSection).sort((x, y)=>x.position - y.position);            
 
+            // list of all unique questions related to the quiz plan
             const dictQuizzes = allQuizzes.reduce((p, x)=>{
               const q = new Quiz();
               q.setId(x.quizId);
@@ -61,9 +67,7 @@ class QuizGameBuilder {
               x.options
                 .map(o=>{
                   const qo = new QuizOption();
-                  qo.id = o.optionId;
-                  qo.isCorrect = o.isCorrect;
-                  qo.text = o.text;
+                  qo.setMainData(o.optionId, o.text, o.isCorrect);
                   return qo;
                 })
                 .forEach(o=>{

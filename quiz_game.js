@@ -12,10 +12,7 @@ class QuizGame extends Game {
         // add a new quiz to the game
         
     };
-
-    setPlan = (plan)=>{
-        
-    };
+    
 }
 
 module.exports = {
