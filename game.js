@@ -294,7 +294,7 @@ class Game{
             .reduce((p, x)=>{
                 var team = p.teams.find(t=>t.teamNumber == x.teamNumber)
                 team.points += x.points;
-                team.questionsScore.push({points:x.points, answered:x.answered});
+                team.questionsScore.push({points:x.points, answered:x.answered, question:x.question});
                 if(x.answered == true){
                     team.answered = true;
                 }
@@ -383,11 +383,21 @@ class Game{
         }
         
         const output = roundResults.map(x=>{
+            var questionresultdict = x.questionsScore.reduce((acc, cur)=>{
+                acc[cur.question] = acc[cur.question] || { 
+                  question: cur.question,
+                  answered: cur.answered,
+                  points: 0
+                };
+                acc[cur.question].points = acc[cur.question].points + cur.points;
+                return acc;
+                },{});
+            var questionresult = Object.values(questionresultdict);
             return {
                 teamNumber: x.teamNumber,
                 points: x.points,
                 rowId:x.name  + " (" + x.points + ")",
-                cells:x.questionsScore.map(q=>{
+                cells:questionresult.map(q=>{
                     return{
                         points: (q.answered==true ? q.points + "" : "--").padStart(4, " ")
                     }
