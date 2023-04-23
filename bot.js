@@ -120,12 +120,13 @@ class GameBot {
         
         const tid = Number(teamId);
         const game = this.dictGames[my.game];
-
+        var manager = new GameManager(game, ctx.telegram);
         // check user and sed message with buttons
         if(game.qmId == ctx.callbackQuery.from.id){
             game.setAnsweringTeam(teamId);
             const teamName = game.getTeams().find(x=>x.id == teamId).name;
             await ctx.editMessageReplyMarkup({});
+            await manager.notifyTeam(teamId, "Your team will answer question №" + (game.question + 1));
             await ctx.reply(teamName + " will answer question №" + (game.question + 1) + "\n" 
                 +"Review their answer:", 
             {
@@ -371,13 +372,14 @@ class GameBot {
         }
         var teams = game.getTeams();
         var aTeam = teams.find(x=>x.id == game.answeringTeam);
+        var manager = new GameManager(game, ctx.telegram);
 
         switch(actionCode){
             case "ok":
                 game.postScore(game.answeringTeam, true);
                 // next question? next round? 
                 game.answeringTeam = null;
-                
+                await manager.notifyTeam(teamId, "Your answer on question №"+ (game.question + 1)  +" is correct!" );
                     // next question, next round
                     var kb = [
                         [{text:"Next Question", callback_data:"nquestion"}]
@@ -404,6 +406,7 @@ class GameBot {
                 break;
             case "no":
                 game.postScore(game.answeringTeam, false);
+                await manager.notifyTeam(teamId, "Your answer on question №"+ (game.question + 1)  +" is wrong!" );
                 // ask another team? next question? or next round?
                 var teamsKb = teams.map(t=>{
                     return {
