@@ -12,4 +12,9 @@
 Please, use the command /ngame to create a new game. This command has the following parameters: numberOfTeams teamLimit numberOfRounds
 
 
-
+# Database configuration
+This project works with mongoDB server. The connection string can be specified in the .env file. Initially, there is no such a file. So first you should create a .env file in the project directory as a copy of sample.env file. Then change .env accordingly - initialize DB and Telegram's API_KEY variables.
+1. Download MongoDB
+2. Create a new folder to store the data
+3. run mongod --port 27017 --dbpath PathToTheNewFolder
+4. create a .env file in the project directory as a copy of sample.env file

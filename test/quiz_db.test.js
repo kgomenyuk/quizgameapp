@@ -12,5 +12,6 @@ test("Sample data can be read from DB", async ()=>{
     var b = new QuizGameBuilder();
     await b.setQuizPlan('SQL_L7_Quiz');
     var game = await b.build();
+    expect(game).not.toBeNull();
     await disconnectDb();
 });
