@@ -11,19 +11,18 @@
 ## 3.1. Game initialization
 
 # 4. Database structure
-## writeData() method populates the database using the bulkWrite() method and an object called MQuiz, which represents the data model for quiz questions.
+### writeData() method populates the database using the bulkWrite() method and an object called MQuiz, which represents the data model for quiz questions.
 
-## The bulkWrite() method allows for multiple write operations to be executed in a single database transaction to ensure data integrity. Each object in the array defines a write operation, which can be adding a new record, updating an existing record, or deleting a record.
+### The bulkWrite() method allows for multiple write operations to be executed in a single database transaction to ensure data integrity. Each object in the array defines a write operation, which can be adding a new record, updating an existing record, or deleting a record.
 
-## Each object defines a filter, which is used to select the record in the database to be modified, and an update that contains new values for the fields that need to be saved in the database.
+### Each object defines a filter, which is used to select the record in the database to be modified, and an update that contains new values for the fields that need to be saved in the database.
 
-## Additionally, each object contains quizId, questionText, tags for searching questions, and answer choices with their text and an isCorrect flag indicating whether this choice is the correct answer.
+### Additionally, each object contains quizId, questionText, tags for searching questions, and answer choices with their text and an isCorrect flag indicating whether this choice is the correct answer.
 
-## possible structure
+### possible structure
 
-'''
-
-{ updateOne:{
+```js script
+updateOne:{
     filter:{ quizId: "SQL_L7_R1Q2", tags:"samples" },
     upsert:true,
     update: {
@@ -48,8 +47,7 @@
             }]
         }
     }
-}
-'''
+```
 
 
 
