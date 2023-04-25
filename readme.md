@@ -30,6 +30,8 @@
 
 [Finishing the game and viewing the results of teams 5](#_Toc132642896)
 
+[Database structure](#_Toc132642897)
+
 # **Introduction**
 
 Quiz automation bot ([https://t.me/onegamequizbot](https://t.me/onegamequizbot)) is created to automate the process of conducting and participation of students in learning quizzes. It has the following functionality:
@@ -135,7 +137,7 @@ After this action bot will send the statistics about finished round, about full 
 <img width="114" alt="image" src="https://user-images.githubusercontent.com/58792341/233375497-ffd6a07b-24c6-4e4b-a9d2-6dd8a471576d.png">
 
 
-# Database structure
+# **Database structure**
 ### writeData() method populates the database using the bulkWrite() method and an object called MQuiz, which represents the data model for quiz questions.
 
 ### The bulkWrite() method allows for multiple write operations to be executed in a single database transaction to ensure data integrity. Each object in the array defines a write operation, which can be adding a new record, updating an existing record, or deleting a record.
