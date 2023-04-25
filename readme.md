@@ -133,3 +133,43 @@ After all rounds are played and answers are given, quiz master can finish the ga
 After this action bot will send the statistics about finished round, about full game teams' performance and about who won the game.
 
 <img width="114" alt="image" src="https://user-images.githubusercontent.com/58792341/233375497-ffd6a07b-24c6-4e4b-a9d2-6dd8a471576d.png">
+
+
+# Database structure
+### writeData() method populates the database using the bulkWrite() method and an object called MQuiz, which represents the data model for quiz questions.
+
+### The bulkWrite() method allows for multiple write operations to be executed in a single database transaction to ensure data integrity. Each object in the array defines a write operation, which can be adding a new record, updating an existing record, or deleting a record.
+
+### Each object defines a filter, which is used to select the record in the database to be modified, and an update that contains new values for the fields that need to be saved in the database.
+
+### Additionally, each object contains quizId, questionText, tags for searching questions, and answer choices with their text and an isCorrect flag indicating whether this choice is the correct answer.
+
+### possible structure
+
+```js script
+updateOne:{
+    filter:{ quizId: "SQL_L7_R1Q2", tags:"samples" },
+    upsert:true,
+    update: {
+    quizId: "SQL_L7_R1Q2", 
+    questionText: `Which query is equivalent to SELECT * from A cross join B?`,
+    tags:["samples"],
+    options:[
+            {
+                ptionId: 1,
+                isCorrect:true,
+                text:"SELECT * from A join B on 0 = 0"
+            },
+            {
+                optionId: 2,
+                isCorrect:false,
+                text:"SELECT * from A join B on 1 = 0"
+            },
+            {
+                optionId: 3,
+                isCorrect:false,
+                text:"SELECT * from A, B where 0 = 1"
+            }]
+        }
+    }
+```
