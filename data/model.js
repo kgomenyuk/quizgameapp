@@ -2,9 +2,10 @@ var m = require("mongoose");
 
 const CQuiz = new m.Schema(
     {
-        quizId: String,
+        quizId: String, // unique key
         questionText: String,
         quizType: String, // m, s
+        lang: String, // language code
         options: [{
             optionId: Number,
             text: String,
@@ -15,6 +16,8 @@ const CQuiz = new m.Schema(
         tags:[String]
     }
 );
+// quiz id now will be unique
+CQuiz.index({quizId: 1}, {unique: true});
 
 const CQuizPlan = new m.Schema({
     planId: String,
