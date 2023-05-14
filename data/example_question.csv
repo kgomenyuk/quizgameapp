@@ -1,0 +1,4 @@
+QUIZ_ID;QUIZ_TEXT;QUIZ_TAGS;QUIZ_LANG;QUIZ_HAS_PIC;QUIZ_OPTION;QUIZ_OPTION_TEXT;OPTION_IS_CORRECT
+SQL_L7_R1Q1;What will this query return?;samples;EN;;1;Nothing, if A is empty;X
+SQL_L7_R1Q1;;;;;2;Cross product of A and B;
+SQL_L7_R1Q1;;;;;3;Nothing, if B is empty;
