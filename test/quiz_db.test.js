@@ -1,5 +1,6 @@
 const { disconnectDb, startDb } = require("../data/db");
 const { writeData } = require("../data/sample_001");
+const { writeDataBot } = require("../data/sample_002_bots");
 const { QuizGameBuilder } = require("../game_builder");
 
 test("Sample data can be written to the DB", async ()=>{
@@ -13,5 +14,11 @@ test("Sample data can be read from DB", async ()=>{
     await b.setQuizPlan('SQL_L7_Quiz');
     var game = await b.build();
     expect(game).not.toBeNull();
+    await disconnectDb();
+});
+
+test("Bot settings", async ()=>{
+    await startDb();
+    await writeDataBot();
     await disconnectDb();
 });

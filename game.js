@@ -426,5 +426,6 @@ class Game{
 }
 
 module.exports = {
-    Game
+    Game,
+    randomString
 };

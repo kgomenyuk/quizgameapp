@@ -1,4 +1,5 @@
 require("dotenv").config({path:"./.env" });
+require("dotenv").config({path:"./launch/.env" });
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -7,6 +8,14 @@ var app = express();
 var http = require('http');
 var debug = require('debug')('bot');
 var { GameBot } = require('../bot');
+
+var tg = require("telegraf");
+const appsToLoad = require("../launch/main");
+const { AppCore } = require("../lib/appCore");
+const { SessionManager } = require("../lib/Sessions");
+const dbm = require("../data/db");
+var apps = new AppCore({});
+var sman = new SessionManager();
 
 var bot = new GameBot();
 
@@ -99,7 +108,64 @@ async function onListening() {
     : 'port ' + addr.port;
   debug('Listening on ' + bind);
   
-    await bot.startBot();
+    //await bot.startBot();
+    await app.startApplication();
 }
 
 
+
+async function launch(options) {
+	
+	const isDev = options.isDevMode;
+	apps = new AppCore(options);
+
+	const currentTg = new tg.Telegraf(options.apiKey);
+	currentTg.catch((err) => {
+		apps.logError("TG error: " + err.message);
+	});
+
+	if (apps != null) {
+		//var planMan = new ScheduleManager();
+		apps.attachTG(currentTg);
+		apps.attachSMan(sman);
+		apps.setDBContext(dbm);
+
+		await apps.setAppMapping(appsToLoad.mapping);
+
+		await apps.start({
+			apikey: options.apiKey
+		});
+	}
+
+	await currentTg.launch();
+	console.log("Bot is running and listening.");
+}
+
+
+app.startApplication = async () => {
+	try {
+    await dbm.startDb();
+		var botCode = process.env["RUN_BOT"];
+		var settings = await dbm.getBot(botCode);
+
+		if(settings.isOnline == false){
+			throw "bot is set to be offline";
+		}
+		// будет выполнена попытка запустить бота
+		await launch({
+			apiKey: settings.apiKey,
+			isDevMode: settings.isDevMode,
+			name: settings.name,
+			ftpServer: settings.ftpServer,
+			ftpDir: settings.ftpDir,
+			ftpUser: settings.ftpUser,
+			ftpPwd: settings.ftpPwd,
+			ftpPort: settings.ftpPort,
+			dName: settings.dName
+		});
+
+	} catch (e) {
+		console.log("error " + e.message);
+    await dbm.disconnectDb();
+	}
+};
