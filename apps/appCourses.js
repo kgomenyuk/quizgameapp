@@ -85,13 +85,13 @@ class AppCourses extends AppBase {
 ## START
 Введите название курса:
 ===
-{{ courses!addc01_cancel| Отмена | BTN_CNACEL }}`;
-		const screen = s.uiInside("ADD_COURSE");
+{{ courses!addc01_cancel | Отмена | BTN_CANCEL }}`;
+		
 		const msg = s.uiReg3(msgDef, true);
-
+		const screen = s.uiInside("ADD_COURSE");
 		const userId = ctx.from.id;
 		await screen.postMessage(ctx, "START", userId);
-
+		s.watchCallback();
 		s.watchMessage(); // waiting for a message
 		return true
 	}
@@ -104,22 +104,24 @@ class AppCourses extends AppBase {
  */
 	async step01_02(s, ctx, state) {
 		var msgDef =
-			`# ADD_COURSE
-		## RESULT
-		Курс {{ CNAME | Название курса | }} добавлен.
-		Номер курса - {{ CNUM | Номер | }}.
-		===
-		{{ courses!addc02_ok| ОК | BTN_OK }}`;
+`# ADD_COURSE
+## RESULT
+Курс {{ CNAME | Название курса | }} добавлен.
+Номер курса - {{ CNUM | Номер | }}.
+===
+{{ courses!addc02_ok | ОК | BTN_OK }}`;
 
 		const courseName = ctx.message.text;
 		const userId = ctx.from.id;
-		const n = await MCourse.length();
+		const n = await MCourse.countDocuments();
 		await MCourse.create({ courseName: courseName, courseNumber: n + 1 });
 		const screen = s.uiInside("ADD_COURSE");
 		const msg = s.uiReg3(msgDef, true);
 		msg.setPlaceholder("CNAME", courseName);
 		msg.setPlaceholder("CNUM", n + 1);
+		await screen.postMessage(ctx, "RESULT", userId);
 		s.unwatchMessage(); // waiting for a message
+		s.watchCallback();
 		return true
 	}
 /**
@@ -132,7 +134,7 @@ class AppCourses extends AppBase {
 		const screen = s.uiInside("ADD_COURSE");
 		const msg = screen.getMessage("RESULT");
 		msg.hideAllButtons();
-		await screen.updateMessage("RESULT");
+		await screen.updateMessage(ctx, "RESULT");
 		return false;
 	}
 
