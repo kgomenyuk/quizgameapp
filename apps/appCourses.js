@@ -51,7 +51,7 @@ class AppCourses extends AppBase {
 
 	// initial session object
 	_newSessionDataObject() {
-		return new asoGameQuiz();
+		return new asoCourses();
 	}
 
 	_checkBeforeRun(s, t) {
