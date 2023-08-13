@@ -1,3 +1,5 @@
+const { Quiz } = require("./quiz");
+
 /**
  * represents one round
  */
@@ -16,6 +18,16 @@ class QuizRound {
      * @type {[Quiz]}
      */
     quizzesArray = []; 
+
+    /**
+     * current question
+     */
+    currentQuestion = 0;
+
+    /**
+     * -1 means no question has been opened yet
+     */
+    lastOpenedQuestion = -1;
 }
 
 module.exports = {

@@ -25,7 +25,7 @@ function randomStringUnique(txt) {
 }
 
 /**
- * один вариант ответа в вопросе
+ * Quiz option
  */
 class QuizOption {
     /**
@@ -58,8 +58,32 @@ class QuizOption {
     };
 }
 
+class QuizAnswerOption{
+    /** this option should have been chosen but it was not selected */
+    missing=false;
+    /** correct option was chosen */
+    correct=false;
+    /** Option */
+    optionId=false;
+    /** The user's choice */
+    selected=false; 
+}
+
+class QuizAnswer {
+    answerId="";
+    gameId="";
+    userId="";
+    place=0;
+    /**@type {[QuizAnswerOption]} */
+    options= [];
+    time= new Date();
+    result=false;
+    percentCorrect=0.0;
+    team={};
+}
+
 /**
- * Содержимое одного вопроса с всеми доступными вариантами ответов
+ * A single question
  */
 class Quiz {
     
@@ -186,7 +210,7 @@ class Quiz {
      * 
      * @param {string} userId 
      * @param {number|[number]} optionIds 
-     * @returns an evaluated answer object
+     * @returns {QuizAnswer} an evaluated answer object
      */
     postAnswer = (userId, optionIds) =>{
         var arrOpts = [];
@@ -204,7 +228,8 @@ class Quiz {
                 return {
                     missing: x.ansId == null && x.isCorrect == true ? true:false,
                     correct: x.ansId!=null && x.isCorrect ? true : false,
-                    optionId: x.id
+                    optionId: x.id,
+                    selected: x.ansId != null
                 }
             });
 
@@ -223,7 +248,7 @@ class Quiz {
 
         var perc = 0.0;
         if(correctCount>0){
-            perc = correctChoiceCount/correctCount;
+            perc = correctChoiceCount/correctCount*100;
         }
 
         if(wrongChoice.length == 0 && this.options.length > 0){
@@ -293,5 +318,7 @@ class Quiz {
 
 module.exports = {
     Quiz,
-    QuizOption
+    QuizOption,
+    QuizAnswer,
+    QuizAnswerOption
 };

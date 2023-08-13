@@ -89,10 +89,14 @@ class QuizGameBuilder {
         }
     }
     /**
+     * @type {Game}
      * @returns { Game }
      */
-    build = async () => {
-        var g = new QuizGame();
+    build = async (game) => {
+        var g = game;
+        if(game == null){
+           g = new QuizGame();
+        }
 
         // add rounds
         this.sections.forEach(r=>{

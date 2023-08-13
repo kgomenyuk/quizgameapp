@@ -1,28 +1,110 @@
 require("dotenv").config({path:"./.env" });
 require("dotenv").config({path:"./launch/.env" });
+const webGameQuizPages = require("../apps/webGameQuiz/index");
+const webGameQuizPlans = require("../apps/webGameQuiz/plans");
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
+const model = require("../data/db");
+const exs = require('express-session');
+const bodyParser = require('body-parser');
+const cookieParser = require("cookie-parser");
+const MongoStore = require('connect-mongo');
+
+
+var JwtStrategy = require("passport-jwt").Strategy,
+  ExtractJwt = require("passport-jwt").ExtractJwt,
+  AnonymousStrategy = require("passport-anonymous").Strategy;
+var cookieExtractor = function(req) {
+    var token = null;
+    if (req && req.cookies) token = req.cookies['authorization'];
+    return token;
+  };
+  /**
+   * @type {import("passport-jwt").StrategyOptions}
+   */
+var authOpts = {};
+  authOpts.jwtFromRequest = ExtractJwt.fromExtractors([cookieExtractor, ExtractJwt.fromAuthHeaderAsBearerToken()]);
+  authOpts.secretOrKey = "12345abczxY&";
+  
+var passport = require("passport");
+passport.use(new AnonymousStrategy());
+passport.use(
+  new JwtStrategy(authOpts, async function (jwt_payload, done) {
+    try {
+      const user = jwt_payload.user; 
+
+      if (user) {
+        return done(null, user);
+      } else {
+        return done(null, null);
+      }
+    } catch (err) {
+      return done(err, null);
+    }
+  })
+);
 //var logger = require('morgan');
 var app = express();
+app.set('view engine', 'pug');
+app.set('views', './views');
 var http = require('http');
 var debug = require('debug')('bot');
 var { GameBot } = require('../bot');
 
 var tg = require("telegraf");
 const appsToLoad = require("../launch/main");
-const { AppCore } = require("../lib/appCore");
 const { SessionManager } = require("../lib/Sessions");
 const dbm = require("../data/db");
+const { AppCore } = require("../lib/AppBase");
 var apps = new AppCore({});
 var sman = new SessionManager();
 
 var bot = new GameBot();
 
+
+app.use(
+  exs({
+      store: new MongoStore({
+          collectionName:"websession",
+          mongoUrl: process.env["DB"],
+          client: model.getDb()
+      }),
+      secret: 'AcFGtyh',
+      saveUninitialized: true,
+  })
+);
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use((req, res, next) => {
+  req.appCore = apps;
+  next();
+});
+
+
+app.use(
+  "/access",
+  passport.authenticate(["anonymous", "jwt"], { session: false }),
+  webGameQuizPages
+);
+
+
+app.use(
+  "/plans",
+  passport.authenticate(["jwt"], { session: false }),
+  webGameQuizPlans
+);
+
+
 //app.use(logger('dev'));
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  next(createError(404));
+  if(res.errored==true){
+    next(createError(404));
+  }else{
+    next();
+  }
 });
 // error handler
 app.use(function(err, req, res, next) {
@@ -39,6 +121,7 @@ app.use(function(err, req, res, next) {
  */
 var port = normalizePort(process.env.PORT || '3401');
 app.set('port', port);
+
 
 /**
  * Create HTTP server.
@@ -108,7 +191,6 @@ async function onListening() {
     : 'port ' + addr.port;
   debug('Listening on ' + bind);
   
-    //await bot.startBot();
     await app.startApplication();
 }
 
@@ -119,6 +201,7 @@ async function launch(options) {
 	const isDev = options.isDevMode;
 	apps = new AppCore(options);
 
+  
 	const currentTg = new tg.Telegraf(options.apiKey);
 	currentTg.catch((err) => {
 		apps.logError("TG error: " + err.message);
@@ -137,9 +220,19 @@ async function launch(options) {
 		});
 	}
 
+  const botInfo = await currentTg.telegram.getMe();
+  console.log(botInfo);
+  apps.setBotInfo(botInfo);
+
+  console.log("Bot is running and listening");
+
 	await currentTg.launch();
-	console.log("Bot is running and listening.");
 }
+
+/**
+ * @type {Object<String, {apiKey:String}>}
+ */
+app.bots = {};
 
 
 app.startApplication = async () => {
@@ -147,6 +240,7 @@ app.startApplication = async () => {
     await dbm.startDb();
 		var botCode = process.env["RUN_BOT"];
 		var settings = await dbm.getBot(botCode);
+    app.bots[botCode] = settings;
 
 		if(settings.isOnline == false){
 			throw "bot is set to be offline";

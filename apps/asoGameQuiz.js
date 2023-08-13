@@ -15,6 +15,39 @@ class asoGameQuiz {
      * P - send questions to the teams
      */
     qShow = "N";
+
+    /**
+     * access code that was used when entering the game
+     */
+    code="";
+
+
+    /**
+     * The selected plan identifier
+     */
+    planId="";
+
+
+    /**
+     * @type {[ String ]}
+     */
+    roles=[];
 }
 
-module.exports = {asoGameQuiz};
+class dictGameQuiz {
+    /**
+     * named messages
+     */
+    static screenTags = {
+        teamMembers: "GAME_MEMBERS"
+    };
+
+    static gameStates = {
+        started: "GAME",
+        waitingForQMaster: "wQM",
+        waitingForPlayers: "wPlayers",
+        created: "NEW"
+    };
+}
+
+module.exports = {asoGameQuiz, dictGameQuiz};

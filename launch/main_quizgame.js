@@ -1,5 +1,7 @@
 const { AppGameQuiz } = require("../apps/appGameQuiz");
+const { UIMessage } = require("../lib/UIScreen");
 
+UIMessage.debug = true;
 
 // all apps available
 let mapping = [
