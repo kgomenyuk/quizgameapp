@@ -20,7 +20,7 @@ async function writeDataBot(){
         }}
     ]);
 }
-
+writeDataBot();
 module.exports={
     writeDataBot
 }

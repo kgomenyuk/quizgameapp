@@ -4,7 +4,7 @@ var m = require("mongoose");
 
 const mAppQuizGame = require("./model_appQuizGame");
 const mAllAppSettings = require("./model_allAppSettings");
-
+const mAppCourses = require("./model_appCourses");
 /**
  * registered TG bots
  */
@@ -45,6 +45,7 @@ const MProfile = m.model("profile", CProfile);
 module.exports = {
     ...mAppQuizGame,
     ...mAllAppSettings,
+    ...mAppCourses,
     MBot,
     MProfile
 };

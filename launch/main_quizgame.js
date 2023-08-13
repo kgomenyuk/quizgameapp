@@ -1,3 +1,4 @@
+const { AppCourses } = require("../apps/appCourses");
 const { AppGameQuiz } = require("../apps/appGameQuiz");
 const { UIMessage } = require("../lib/UIScreen");
 
@@ -6,8 +7,12 @@ UIMessage.debug = true;
 // all apps available
 let mapping = [
 {
-	alias: "game2",
-	newInstance: () => new AppGameQuiz()
+    alias: "game2",
+    newInstance: () => new AppGameQuiz()
+},
+{
+    alias: "course",
+    newInstance: () => new AppCourses()
 }];
 
 module.exports = {
