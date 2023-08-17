@@ -273,7 +273,8 @@ class QuizGameManager{
                 state: this.game.getState(),
                 createdOn: new Date(),
                 gameLog:[],
-                id1: this.game.gameId
+                id1: this.game.gameId,
+                title: this.game.title
             });
             const strId = res._id.toString();
             this.game.uniqueId = strId;

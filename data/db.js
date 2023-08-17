@@ -1,5 +1,6 @@
 const { mongoose } = require("mongoose");
-const { MBot, MProfile, MQuizPlan, MAppSettings } = require("./model");
+const { MBot, MProfile, MQuizPlan, MAppSettings, MGameInstance } = require("./model");
+const { ObjectId } = require("mongodb");
 /**
  * @type {mongoose}
  */
@@ -262,6 +263,15 @@ async function getGamePlanSummary(planId){
     }
 }
 
+async function getGameInstanceHeader(giid) {
+    const inst = await MGameInstance.findById(new ObjectId(giid));
+    if(inst!=null){
+        return inst.toObject();
+    }else{
+        return null;
+    }
+}
+
 module.exports={
     startDb,
     getDb,
@@ -273,5 +283,6 @@ module.exports={
     webGameQuizReportPlans,
     appgame2ReadAppSettings,
     checkPlanExists,
-    getGamePlanSummary
+    getGamePlanSummary,
+    getGameInstanceHeader
 }

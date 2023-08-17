@@ -32,6 +32,11 @@ class asoGameQuiz {
      * @type {[ String ]}
      */
     roles=[];
+
+    /**
+     * Key of an instance
+     */
+    instanceId = "";
 }
 
 class dictGameQuiz {

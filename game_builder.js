@@ -26,6 +26,10 @@ class QuizGameBuilder {
      * @param {String} quizPlanId 
      */
     setQuizPlan = async (quizPlanId) => {
+
+      const qPlanHeader = await MQuizPlan.findOne({ planId: quizPlanId }, {title: 1 }).exec();
+      this.title = qPlanHeader.title;
+
       // retrieve the plan from the database
         var quizPlan = await MQuizPlan.aggregate(
             [
@@ -97,6 +101,8 @@ class QuizGameBuilder {
         if(game == null){
            g = new QuizGame();
         }
+
+        g.title = this.title;
 
         // add rounds
         this.sections.forEach(r=>{
