@@ -200,19 +200,7 @@ class QuizGameManager{
         const qmScreen = qmS.findScreen("QM_GAME_MEMBERS");
         const listQmMsg = qmScreen.getMessage("TEAMS_LIST");
 
-        const allPlayers = this.game.getTeams()
-            .map(x=>{
-                return x.players.map(p=>{
-                    return {t: x.name, ...p}
-                })
-            })
-            .flat()
-            .map(x=>{
-                return {
-                    id:x.id,
-                    value: x.t + " " + x.name
-                };
-            });
+        const allPlayers = this.getAllPlayers();
 
         listMsg.array = Array.from(allPlayers);
         listQmMsg.array = Array.from(allPlayers);
@@ -279,6 +267,22 @@ class QuizGameManager{
             const strId = res._id.toString();
             this.game.uniqueId = strId;
         }
+    };
+
+    getAllPlayers = () => {
+        return this.game.getTeams()
+                .map(x=>{
+                    return x.players.map(p=>{
+                        return {t: x.name, ...p}
+                    })
+                })
+                .flat()
+                .map(x=>{
+                    return {
+                        id:x.id,
+                        value: x.t + " " + x.name
+                    };
+                });
     };
 }
 

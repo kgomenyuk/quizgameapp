@@ -678,7 +678,7 @@ The information about teams will appear in this message.
 {{ ? | List of teams | }}
 `;
 
-
+		var mgr = new QuizGameManager(state.game, ctx.telegram);
 		// notify quiz master
 		const qm = state.game.getQuizMasterCandidate();
 		if(qm){
@@ -690,7 +690,7 @@ The information about teams will appear in this message.
 			// these messages can be accessed later
 			const qmSess = await this.getSessionOfUser(qmid);
 			var scr = qmSess.uiInside("QM_GAME_MEMBERS");
-			const msgQM = qmSess.uiReg3(msgDef, false);
+			const msgQM = qmSess.uiReg3(msgDef, false); var arr = mgr.getAllPlayers(); if(arr!=null){ msgQM.array=arr; }
 			await scr.postMessage(ctx, "TEAMS_LIST", qmid);
 
 			// remove buttons
@@ -757,7 +757,7 @@ Game code was not sent. Please, use the following format: /play2 GameCode`;
 		if(ctx.params!=null && ctx.params.data!=null){
 			gameID = ctx.params.data;
 			var gi = await getGameInstanceHeader(gameID);
-			gameID = gi.id2;
+			gameID = gi.id2; await ctx.deleteMessage(ctx.message.message_id);
 		}else{
 			// take parameters from the input
 			var args = ctx.message.text.split(" ");
