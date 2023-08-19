@@ -62,6 +62,10 @@ class AppGameQuiz extends AppBase {
 		var trCbGameCancel = new TGCallbackEventTrigger("trCbGameCancel", null, "g2\!0201\!cancel");
 		trCbGameCancel.handlerFunction =this.step02_03_selectGameCancel;
 
+		var trCbGameAccess = new TGCallbackEventTrigger("trCbGameAccess", null, "g2\!0202a\!");
+		trCbGameAccess.handlerFunction = this.change_access;
+
+
 		var trCbSelectShowQuestions = new TGCallbackEventTrigger("trCbSelectShowQuestions", null, "g2\!0202\!(yes|no)");
 		trCbSelectShowQuestions.handlerFunction = this.step02_04_settingsQScoreCount;
 
@@ -113,7 +117,7 @@ class AppGameQuiz extends AppBase {
 
 		return [
 			trCmdGame2, trMsgstep01_02_enterID, trCmdSetPlanId,
-			trCbGameOk, trCbGameCancel,
+			trCbGameOk, trCbGameCancel, trCbGameAccess,
 			trCbSelectShowQuestions,
 			trCbSelectScoreMode, trCbSelectAudienceMode, trCbAdmSelectGameStart, trCbAdmSelectGameCancel,
 
@@ -357,6 +361,15 @@ to the players on their devices?
 ===
 {{ g2!0202!yes | Yes | yes }}  {{ g2!0202!no | No | no }}`;
 
+const msgAcDef = 
+`# GAME_PARS
+## ACCESS
+You can use the buttons below to enable or disable access for different users.
+===
+{{ g2!0202a!contr | QuizManager ( YES ) | btnqm }}
+{{ g2!0202a!player | Players ( YES ) | btnplayer }}
+{{ g2!0202a!aud | Audience ( NO  ) | btnaud }}`;
+
 		// load a new quiz instance
 		const builder = new QuizGameBuilder();
 
@@ -392,11 +405,46 @@ to the players on their devices?
 		await scr.updateMessage(ctx, "PLAN_SUMMARY");
 
 		scr = s.uiInside("GAME_PARS");
+		var msgAc = s.uiReg3(msgAcDef, true);
+		await scr.postMessage(ctx, "ACCESS", ctx.from.id);
 		var msg = s.uiReg3(msgDef, true);
 		await scr.postMessage(ctx, "QSHOW", ctx.from.id);		
 
 		s.watchCallback();
 		return true;
+	};
+
+/**
+	 * Access settings were modified
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoGameQuiz} state 
+	 */
+	async change_access  (s, ctx, state)  {
+		var g  = state.game;
+
+		const prefix = "g2!0202a!";
+		let mode = ctx.callbackQuery.data.substring(prefix.length);
+		var scr = s.uiInside("GAME_PARS");
+		var m = scr.getMessage("ACCESS");
+
+		switch(mode){
+			case "contr":
+				g.joinControl.qm = !g.joinControl.qm;
+				m.buttons.find(b=>b.reference == "btnqm").text = `QuizManager ( ${g.joinControl.qm?"YES":"NO "} )`;
+				break;
+			case "player":
+				g.joinControl.player = !g.joinControl.player;
+				m.buttons.find(b=>b.reference == "btnplayer").text = `Players ( ${g.joinControl.player?"YES":"NO "} )`;
+				break;
+			case "aud":
+				g.joinControl.aud = !g.joinControl.aud;
+				m.buttons.find(b=>b.reference == "btnaud").text = `Audience ( ${g.joinControl.aud?"YES":"NO "} )`;
+				break;
+		}
+		
+		await scr.updateMessage(ctx, "ACCESS");
+
 	};
 /**
 	 * Plan ID was discarded
@@ -587,7 +635,15 @@ Waiting for Teams and Quiz Master to join the game
 		var game = comRef.dictGames[gameID];
 
 		if(game != null){
+			// check permissions
+			if(game.joinControl.qm == false){
+				// unavailable
+				await ctx.reply("You cannot join this game at this time");
+				return false;
+			}
+
 			state.game = game;
+			
 			return await this.step03_02_QMRequestOK(s, ctx, state);
 		} else {
 			return await this.step03_03_QMRequestError(s, ctx, state);
@@ -774,8 +830,7 @@ Game code was not sent. Please, use the following format: /play2 GameCode`;
 			await scr.postMessage(ctx, "WARNING_COMMAND");
 			return false;
 		}
-		state.code2 = gameID;
-		state.roles.push("player");
+		
 		// game object
 		/**@type {QuizGame} */
 		var game = comRef.dictGameByPlayerCode[gameID];
@@ -783,6 +838,17 @@ Game code was not sent. Please, use the following format: /play2 GameCode`;
 		// find the game object
 
 		if(game != null && game.getState() == "WAITING"){
+
+			// check permissions
+			if(game.joinControl.player == false){
+				// unavailable
+				await ctx.reply("You cannot join this game at this time");
+				return false;
+			}
+
+			state.code2 = gameID;
+			state.roles.push("player");
+
 			state.game = game;
 			return await this.step04_02_joinTheGame(s, ctx, state);
 		}else{

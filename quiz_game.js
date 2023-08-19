@@ -410,6 +410,15 @@ class QuizGame extends Game {
         var r = this.roundsArray[this.round];
         return r.quizzesArray[qnum];
     };
+
+    /**
+     * who can join the game now
+     */
+    joinControl = {
+        qm:true,
+        player:true,
+        aud:false
+    };
 }
 
 module.exports = {
