@@ -12,7 +12,7 @@ html(lang='en')
                     div
                         div="Bot-friendly name: " + item.planId
                         //a(href="http://t.me/" + botInfo.userName + "?start=" + item.planId)="Send to the bot"
-                        a(href="tg://resolve?domain=" + botInfo.userName + "&start=" + item.planId)="Send to the bot"
+                        a(href="tg://resolve?domain=" + botInfo.userName + "&start=C-gm2-gm2plid-" + item.planId)="Send to the bot"
                     ol
                         each s in item.summary
                             li= s.sectionId + " Q: " + s.quizCount

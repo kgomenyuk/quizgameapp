@@ -63,7 +63,9 @@ const CGameInstance= new m.Schema({
             eventId: String,
             userId: String
         }
-    ]
+    ],
+    title: String,
+    planId: String
 });
 
 const CQuizAnswer = new m.Schema({

@@ -2,6 +2,7 @@ require("dotenv").config({path:"./.env" });
 require("dotenv").config({path:"./launch/.env" });
 const webGameQuizPages = require("../apps/webGameQuiz/index");
 const webGameQuizPlans = require("../apps/webGameQuiz/plans");
+const webGameQuizPlayers = require("../apps/webGameQuiz/players");
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -94,6 +95,11 @@ app.use(
   "/plans",
   passport.authenticate(["jwt"], { session: false }),
   webGameQuizPlans
+);
+app.use(
+  "/join",
+  passport.authenticate(["anonymous", "jwt"], { session: false }),
+  webGameQuizPlayers
 );
 
 
