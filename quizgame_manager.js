@@ -293,7 +293,7 @@ class QuizGameManager{
         await this.apps.emit("G2" + this.game.uniqueId, "round", {
             number: rn.roundNumber,
             title: rn.name,
-            questionsCount: rn.roundNumber,
+            questionsCount: rn.quizzesArray.length,
             state: "started"
         });
         return rn;
