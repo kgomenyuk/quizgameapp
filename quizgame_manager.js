@@ -5,6 +5,7 @@ const { QuizGame } = require("./quiz_game");
 const { AppCore } = require("./lib/AppBase");
 const {UIScreen} = require("./lib/UIScreen");
 const { MQuizAnswer, MGameInstance } = require("./data/model");
+const { QuizRound } = require("./quiz_round");
 
 /**
  * additional TG-related actions
@@ -15,12 +16,16 @@ class QuizGameManager{
      * @param {QuizGame} g 
      * @param {Telegram} tg
      */
-    constructor(g, tg){
+    constructor(g, tg, apps){
         this.game = g;
         this.telegram = tg;
-        
+        this.apps = apps;
     }
 
+    /**
+     * @type {AppCore }
+     */
+    apps = null;
     /**
      * @type {QuizGame}
      */
@@ -143,17 +148,10 @@ class QuizGameManager{
 
     }
 
-    /**Write an instance of a game to the database
-     * @param { QuizGame } game
-     */
-    saveGameInstance = async (game) => {
-        
-    };
 
-
-    restoreGameInstance = async (id) => {
-        
-    };
+    //restoreGameInstance = async (id) => {
+    //    
+    //};
 
     /** Find a game instance by ID2 for players
      * 
@@ -215,7 +213,7 @@ class QuizGameManager{
             const ps = p.getAppStateFor("g2");
             const pcs = ps.findScreen("GAME_TEAM_CHOICE");
             const pMsg = pcs.getMessage("MY_TEAM");
-            pMsg.addItem(player.id + "", userName);
+            pMsg.addItem(userId + "", userName);
             //await pcs.arrayAddItemTg("LIST", ctx, {id: player.id + "", value: userName});
             await pcs.updateMessage(ctx, "MY_TEAM");
         }
@@ -227,7 +225,7 @@ class QuizGameManager{
                 const ps = p.getAppStateFor("g2");
                 const pcs = ps.findScreen("GAME_TEAM_CHOICE");
                 const pMsg = pcs.getMessage("MY_TEAM");
-                pMsg.removeItem(player.id + ""); //.arrayRemoveItemTg("LIST", ctx, player.id + "");
+                pMsg.removeItem(userId + ""); //.arrayRemoveItemTg("LIST", ctx, player.id + "");
                 await pcs.updateMessage(ctx, "MY_TEAM");
             }
         }
@@ -284,6 +282,22 @@ class QuizGameManager{
                     };
                 });
     };
+
+    /**
+     * 
+     * @param {*} rnum 
+     * @returns {QuizRound}
+     */
+    startRound = async (rnum) => {
+        var rn = await this.game.startRound(rnum);
+        await this.apps.emit("G2" + this.game.uniqueId, "round", {
+            number: rn.roundNumber,
+            title: rn.name,
+            questionsCount: rn.roundNumber,
+            state: "started"
+        });
+        return rn;
+    }
 }
 
 module.exports = {

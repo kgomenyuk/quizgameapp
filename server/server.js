@@ -3,6 +3,8 @@ require("dotenv").config({path:"./launch/.env" });
 const webGameQuizPages = require("../apps/webGameQuiz/index");
 const webGameQuizPlans = require("../apps/webGameQuiz/plans");
 const webGameQuizPlayers = require("../apps/webGameQuiz/players");
+const webGameQuizView = require("../apps/webGameQuiz/qview");
+const webGameQuizTest = require("../apps/webGameQuiz/test");
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -49,6 +51,7 @@ passport.use(
 var app = express();
 app.set('view engine', 'pug');
 app.set('views', './views');
+app.use(express.static('public')); // static content in public folder
 var http = require('http');
 var debug = require('debug')('bot');
 var { GameBot } = require('../bot');
@@ -58,10 +61,11 @@ const appsToLoad = require("../launch/main");
 const { SessionManager } = require("../lib/Sessions");
 const dbm = require("../data/db");
 const { AppCore } = require("../lib/AppBase");
-var apps = new AppCore({});
+var apps =null;// new AppCore({});
 var sman = new SessionManager();
 
 var bot = new GameBot();
+const getApps = ()=>{return apps;};
 
 
 app.use(
@@ -79,7 +83,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use((req, res, next) => {
-  req.appCore = apps;
+  req.appCore = getApps();
   next();
 });
 
@@ -100,6 +104,16 @@ app.use(
   "/join",
   passport.authenticate(["anonymous", "jwt"], { session: false }),
   webGameQuizPlayers
+);
+app.use(
+  "/game",
+  passport.authenticate(["anonymous", "jwt"], { session: false }),
+  webGameQuizView
+);
+app.use(
+  "/test",
+  passport.authenticate(["anonymous", "jwt"], { session: false }),
+  webGameQuizTest
 );
 
 
@@ -206,7 +220,7 @@ async function launch(options) {
 	
 	const isDev = options.isDevMode;
 	apps = new AppCore(options);
-
+  
   
 	const currentTg = new tg.Telegraf(options.apiKey);
 	currentTg.catch((err) => {
@@ -224,6 +238,8 @@ async function launch(options) {
 		await apps.start({
 			apikey: options.apiKey
 		});
+
+    require("./qview_server")(server, apps);
 	}
 
   const botInfo = await currentTg.telegram.getMe();
@@ -269,3 +285,5 @@ app.startApplication = async () => {
     await dbm.disconnectDb();
 	}
 };
+
+

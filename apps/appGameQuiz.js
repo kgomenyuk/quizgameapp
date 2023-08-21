@@ -197,7 +197,6 @@ class AppGameQuiz extends AppBase {
 		if(link != null){
 			// the parameter was set
 			linkAddress = link.value + "plans/list";
-
 			linkAddress = "\nYou can find the list of available quizzes here " + linkAddress;
 		}
 
@@ -210,6 +209,8 @@ Quiz master - {{ CODE_QUIZMASTER }}
 Players - {{ CODE_PLAYERS }}. {{ LINK_PLAYERS }}
 Audience - {{ CODE_AUDIENCE }}
 
+{{ LINK_GAME_VIEW }}
+
 Please, type the short code of a quiz you would like to use this time
 
 {{ PLANS_LINK }}`;
@@ -221,7 +222,7 @@ Please, type the short code of a quiz you would like to use this time
 		msg.setPlaceholder("CODE_QUIZMASTER", code);
 		msg.setPlaceholder("CODE_PLAYERS", g.getCodeForPlayers());
 		msg.setPlaceholder("CODE_AUDIENCE", g.getCodeForAudience());
-		msg.setPlaceholder("PLANS_LINK", linkAddress);
+		msg.setPlaceholder("PLANS_LINK", linkAddress);		
 		
 
 		await screen.postMessage(ctx, "START_TITLE", userId);
@@ -292,8 +293,9 @@ First five questions:
 ===
 {{ g2!0201!ok | Confirm | ok }} {{ g2!0201!cancel | Cancel | cancel }}`;
 
+		const scr = s.uiInside("START");
 		const msg = s.uiReg3(msgDef, true);
-		const scr = s.uiGetCurrentScreen();
+		//const scr = s.uiGetCurrentScreen();
 
 
 		const summary = await this.dbContext.getGamePlanSummary(state.planId);
@@ -387,6 +389,7 @@ You can use the buttons below to enable or disable access for different users.
 			planId: state.planId
 		});
 		state.instanceId = dbr._id.toString();
+		state.game.uniqueId=state.instanceId;
 
 		var scr = s.uiInside("START");
 		var m = scr.getMessage("START_TITLE");
@@ -396,7 +399,9 @@ You can use the buttons below to enable or disable access for different users.
 			// the parameter was set
 			linkAddressPlayers = link.value + "join/players/" + state.instanceId;
 			linkAddressPlayers = "Page with QR code:  " + linkAddressPlayers;
+			var linkAddressGameView = "Game view: " + link.value + "game/game_view/" + state.instanceId;//.game.uniqueId;
 			m.setPlaceholder("LINK_PLAYERS", linkAddressPlayers);
+			m.setPlaceholder("LINK_GAME_VIEW", linkAddressGameView)
 			await scr.updateMessage(ctx, "START_TITLE");
 		}
 
@@ -1037,7 +1042,8 @@ Quiz master was notified`;
 		let roundId = (ctx.callbackQuery.data + "").substring(prefix.length);
 
 		// 
-		const roundObj = await state.game.startRound(roundId);
+		const gm = new QuizGameManager(state.game, ctx.telegram, this.getAppCore());
+		const roundObj = await gm.startRound(roundId);// state.game.startRound(roundId);
 		if(roundObj == null){
 			await ctx.reply("Error");
 			return false;
@@ -1108,6 +1114,9 @@ Title: {{ RNAME | Title | }}`;
 			
 			await plSrc.postMessage(ctx, "QM_ROUND_TITLE", pl);
 		}
+
+		/* notification through web sockets */
+		//this.emit(state.instanceId, "round", { roundName, roundQNum, roundId });
 		
 		return true;
 	};
