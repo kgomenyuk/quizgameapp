@@ -13,6 +13,7 @@ const exs = require('express-session');
 const bodyParser = require('body-parser');
 const cookieParser = require("cookie-parser");
 const MongoStore = require('connect-mongo');
+const fs = require("fs");
 
 
 var JwtStrategy = require("passport-jwt").Strategy,
