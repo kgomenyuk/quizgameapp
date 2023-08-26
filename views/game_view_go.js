@@ -63,3 +63,12 @@ socket.on("question", (x)=>{
 socket.on("game", (x)=>{
 
 });
+
+socket.on("activity", (x)=>{
+    var spam_box = document.getElementById("spam_chat");
+    
+    var nd = document.createElement("div");
+    nd.innerHTML = x.action + ": " + x.username + " of " + x.ance;
+
+    spam_box.appendChild(nd);
+});

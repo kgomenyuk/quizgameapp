@@ -1171,6 +1171,7 @@ Title: {{ RNAME | Title | }}`;
 		*/
 
 		const q = state.game.question;
+		// questions with media should be visualized as picture and then message with text.
 
 		s.uiInside("GAME_ACTIVE");
 		var template = 

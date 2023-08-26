@@ -53,6 +53,7 @@ app.set('view engine', 'pug');
 app.set('views', './views');
 app.use(express.static('public')); // static content in public folder
 var http = require('http');
+var https = require('https');
 var debug = require('debug')('bot');
 var { GameBot } = require('../bot');
 
@@ -146,7 +147,14 @@ app.set('port', port);
 /**
  * Create HTTP server.
  */
-var server = http.createServer(app);
+var SSL = process.env["SSL_CA"]!=null && process.env["SSL_CA"]!="" && process.env["SSL_KEY"]!=null && process.env["SSL_KEY"]!="";
+var server = SSL==true ? 
+    https.createServer(
+        {
+          cert: fs.readFileSync(process.env["SSL_CA"]), 
+          key: fs.readFileSync(process.env["SSL_KEY"]) 
+        }, app) 
+         : http.createServer(app);
 
 /**
  * Listen on provided port, on all network interfaces.
