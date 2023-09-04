@@ -11,6 +11,7 @@ const { MGameInstance } = require("../data/model");
 const { TGCommandEventTrigger, TGCallbackEventTrigger, TGMessageEventTrigger } = require("../lib/Triggers");
 const { QuizGameBuilder } = require("../game_builder");
 const { UIMessage } = require("../lib/UIScreen");
+const { leftJoin, tidy } = require("@tidyjs/tidy");
 
 
 
@@ -1084,7 +1085,12 @@ Press button to open the question {{ QUESTION | Question number | }}
 {{ g2!0508!cancel | Cancel game | cancel }}`;
 		
 		const qm = state.game.getQuizMaster().userId;
-		const qmS = await this.getSessionOfUser(qm); const prevScr = qmS.uiInside("QM_CONTROL_PANEL"); const msgPrev = prevScr.getMessage("START"); msgPrev.hideAllButtons(); await prevScr.updateMessage(ctx, "START");
+		const qmS = await this.getSessionOfUser(qm); 
+		const prevScr = qmS.uiInside("QM_CONTROL_PANEL"); 
+		const msgPrev = prevScr.getMessage("START"); 
+		msgPrev.hideAllButtons(); 
+		await prevScr.updateMessage(ctx, "START");
+
 		const qmScr = qmS.uiInside("QM_ROUND");
 		const msgQm = qmS.uiReg3(msgDefQM, true);
 		msgQm.setPlaceholder("ROUND", round);
@@ -1123,7 +1129,7 @@ Title: {{ RNAME | Title | }}`;
 
 
 /**
-	 * Show one question
+	 * Show one question and start waiting for the answers
 	 * @param {SessionObject} s 
 	 * @param {Context} ctx 
 	 * @param {asoGameQuiz} state 
@@ -1133,62 +1139,104 @@ Title: {{ RNAME | Title | }}`;
 		const prefix = "g2!0508!start!";
 		let pars = (ctx.callbackQuery.data + "").substring(prefix.length);
 		let pars2 = pars.split("!");
-		let rId = prs2[0];
+		let rId = pars2[0];
+
+		// question number
 		let qId = pars2[1];
 
-		// depending on parameters show the question and buttons
-		
-		if(state.game.parameters.qShow == true){
-			// send text to the teams
-			for (const p of state.game.getPlayers()) {
-				// all players
-				const pl = p.userId;
-				const plS = await this.getSessionOfUser(pl);
-				const plSrc = plS.uiInside("QM_ROUND");
-				const msgPl = plSrc.uiReg3(msgDefPlayers, true);
-				msgPl.setPlaceholder("ROUND", roundObj.roundNumber);
-				msgPl.setPlaceholder("QUESTIONS", roundQNum);
-				msgPl.setPlaceholder("RNAME", roundObj.name);
-				
-				await plSrc.postMessage(ctx, "QM_ROUND_TITLE", pl);
-			}
-		}else{
-			// send only announcement
-		}
+		// current question:
+		var question = state.game.getQuestionObj(qId);
 
-		/*
-		#GAME_ACTIVE
-		##QUESTION
-		Round {{ROUND_NUM}}
-		Question {{QUESTION_NUM}}
-		{{QUESTION_TEXT}}
-		Options:
-		{{?}}
-		------ ------
-		   O1    O2
-		------ ------
-		   03    04
-		*/
+	// question may include a media attachment - a picture.
 
-		const q = state.game.question;
-		// questions with media should be visualized as picture and then message with text.
-
-		s.uiInside("GAME_ACTIVE");
-		var template = 
+		var msgPlayerQuestion = 
 `# GAME
 ## QUESTION
-Round {{ROUND_NUM}}
-Question {{QUESTION_NUM}}
-{{QUESTION_TEXT}}
+******* Round {{ROUND_NUM | Curent round number | }}. Question {{QUESTION_NUM | Current question number |}} **************************
+{{ QUESTION_TEXT | Question text | }}
 Choose correct option:\n
-{{?}}`;
-		var msgGameActive = new UIMessage(template, "QUESTION", options, );
-		s.uiReg2(msgGameActive);
-		s.uiCommit();
+{{ ? }}
+===
+{{ ? | Buttons with options | btnOptions }}`; // options can be added via an array
 
-		// 1. Open current question
-		// 2. Notify all players
-		// 3. Notify 
+		
+
+		// we will have 4 buttons anyway
+		var btns = 
+			[
+				{ code: "g2!answer!pl!" + rId + "!1", btext: "🐶", optionNumber: 0 }, 
+				{ code:"g2!answer!pl!" + rId + "!2", btext:"🦊", optionNumber: 1 }, 
+				{ code: "g2!answer!pl!" + rId + "!3", btext:"🐯", optionNumber: 2 }, 
+				{ code:"g2!answer!pl!" + rId + "!4", btext:"🐸",  optionNumber: 3 }
+			];
+
+			var joined = tidy(btns, leftJoin(
+				question.options.map(o=>{ 
+						return { optionNumber:o.optionNumber, id:o.id, text:o.text }; 
+					}), 
+				{ 
+					by:
+						{ 
+							optionNumber: "optionNumber" 
+						} 
+				} ) )
+				.map(x=>{
+					return {
+						code: x.code,
+						text: x.id == null ? "-" : x.btext,
+						hide: x.id == null, 
+						fullText: x.btext + " - " + x.text
+					}
+				});
+
+		// options to be shown in the message
+		var texts = joined
+			.filter(o=>o.hide == false)
+			.map(o=>{
+				return {
+					id: o.code,
+					value: o.fullText
+				};
+			});
+		// depending on parameters show the question and buttons
+	
+		// send text to the teams
+		for (const p of state.game.getPlayers()) {
+			// all players
+			const pl = p.userId;
+			const plS = await this.getSessionOfUser(pl);
+			const plSrc = plS.uiInside("GAME");
+			
+			const msgPl = plS.uiReg3(msgPlayerQuestion, false);
+
+			msgPl.setBtnPlace("btnOptions", joined);
+
+			msgPl.setPlaceholder("ROUND_NUM", rId);
+			msgPl.setPlaceholder("QUESTION_NUM", qId);
+
+			if(state.game.parameters.qShow == true){
+				// show question text
+				msgPl.setPlaceholder("QUESTION_TEXT", question.questionText);
+			}else{
+				msgPl.setPlaceholder("QUESTION_TEXT", "Please, find the question on the screen");
+			}
+
+			// all options to be shown
+			msgPl.array = Array.from(texts);
+			
+			var bp = msgPl.buttonPlaces.find(x=>x.reference == "btnOptions");
+			bp.maxInLine = 2;
+
+			msgPl.createButtonsTable();
+
+			await plSrc.postMessage(ctx, "QUESTION", pl);
+		}
+
+		
+		// questions with media should be visualized as picture and then message with text.
+		state.game.setState("Q_VISIBLE");
+
+		return true;
 	};
 /**
 	 * Handle GameID message

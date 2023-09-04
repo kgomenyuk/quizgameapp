@@ -186,24 +186,29 @@ class QuizGameManager{
             return;
         }
         
+        const allPlayers = this.getAllPlayers();
+
+        // notify the quiz master if he is known to us
+        const qm = this.game.getQuizMaster();
+        if(qm != null){
+            const qmObj = ac.sMan.fetch(qm.userId);
+            const qmS = qmObj.getAppStateFor("g2");
+            const qmScreen = qmS.findScreen("QM_GAME_MEMBERS");
+            const listQmMsg = qmScreen.getMessage("TEAMS_LIST");
+            
+            listQmMsg.array = Array.from(allPlayers);
+
+            await qmScreen.updateMessage(ctx, "TEAMS_LIST");
+        }
+
         // notify the owner
         const ownerObj = ac.sMan.fetch(this.game.getOwner().userId);
         const ownerS = ownerObj.getAppStateFor("g2");
         const ownerScreen = ownerS.findScreen("ADMIN_GAME_MEMBERS");
         const listMsg = ownerScreen.getMessage("TEAMS_LIST");
-
-        // notify the quiz master
-        const qmObj = ac.sMan.fetch(this.game.getQuizMaster().userId);
-        const qmS = qmObj.getAppStateFor("g2");
-        const qmScreen = qmS.findScreen("QM_GAME_MEMBERS");
-        const listQmMsg = qmScreen.getMessage("TEAMS_LIST");
-
-        const allPlayers = this.getAllPlayers();
-
         listMsg.array = Array.from(allPlayers);
-        listQmMsg.array = Array.from(allPlayers);
+        
         await ownerScreen.updateMessage(ctx, "TEAMS_LIST");
-        await qmScreen.updateMessage(ctx, "TEAMS_LIST");
 
         // also update messages with teams
         var team = this.game.getTeam(teamId);

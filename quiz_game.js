@@ -105,6 +105,11 @@ class QuizGame extends Game {
             this._state = state;
             return true;
         }
+
+        if(state == "Q_VISIBLE"){
+            this._state = "Q_VISIBLE";
+            return true;
+        }
         
         return false;
         /*

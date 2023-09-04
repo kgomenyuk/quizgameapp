@@ -93,6 +93,9 @@ class Quiz {
      */
     questionText = "";
 
+    
+    ordId = 0;
+
     /**All available options
      * @type {[QuizOption]} 
      */
