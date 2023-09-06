@@ -105,6 +105,11 @@ class QuizGame extends Game {
             this._state = state;
             return true;
         }
+
+        if(state == "Q_VISIBLE"){
+            this._state = "Q_VISIBLE";
+            return true;
+        }
         
         return false;
         /*
@@ -409,6 +414,15 @@ class QuizGame extends Game {
     getQuestionObj = (qnum) => {
         var r = this.roundsArray[this.round];
         return r.quizzesArray[qnum];
+    };
+
+    /**
+     * who can join the game now
+     */
+    joinControl = {
+        qm:true,
+        player:true,
+        aud:false
     };
 }
 

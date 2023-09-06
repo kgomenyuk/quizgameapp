@@ -5,6 +5,7 @@ const { QuizGame } = require("./quiz_game");
 const { AppCore } = require("./lib/AppBase");
 const {UIScreen} = require("./lib/UIScreen");
 const { MQuizAnswer, MGameInstance } = require("./data/model");
+const { QuizRound } = require("./quiz_round");
 
 /**
  * additional TG-related actions
@@ -15,12 +16,16 @@ class QuizGameManager{
      * @param {QuizGame} g 
      * @param {Telegram} tg
      */
-    constructor(g, tg){
+    constructor(g, tg, apps){
         this.game = g;
         this.telegram = tg;
-        
+        this.apps = apps;
     }
 
+    /**
+     * @type {AppCore }
+     */
+    apps = null;
     /**
      * @type {QuizGame}
      */
@@ -143,17 +148,10 @@ class QuizGameManager{
 
     }
 
-    /**Write an instance of a game to the database
-     * @param { QuizGame } game
-     */
-    saveGameInstance = async (game) => {
-        
-    };
 
-
-    restoreGameInstance = async (id) => {
-        
-    };
+    //restoreGameInstance = async (id) => {
+    //    
+    //};
 
     /** Find a game instance by ID2 for players
      * 
@@ -188,36 +186,29 @@ class QuizGameManager{
             return;
         }
         
+        const allPlayers = this.getAllPlayers();
+
+        // notify the quiz master if he is known to us
+        const qm = this.game.getQuizMaster();
+        if(qm != null){
+            const qmObj = ac.sMan.fetch(qm.userId);
+            const qmS = qmObj.getAppStateFor("g2");
+            const qmScreen = qmS.findScreen("QM_GAME_MEMBERS");
+            const listQmMsg = qmScreen.getMessage("TEAMS_LIST");
+            
+            listQmMsg.array = Array.from(allPlayers);
+
+            await qmScreen.updateMessage(ctx, "TEAMS_LIST");
+        }
+
         // notify the owner
         const ownerObj = ac.sMan.fetch(this.game.getOwner().userId);
         const ownerS = ownerObj.getAppStateFor("g2");
         const ownerScreen = ownerS.findScreen("ADMIN_GAME_MEMBERS");
         const listMsg = ownerScreen.getMessage("TEAMS_LIST");
-
-        // notify the quiz master
-        const qmObj = ac.sMan.fetch(this.game.getQuizMaster().userId);
-        const qmS = qmObj.getAppStateFor("g2");
-        const qmScreen = qmS.findScreen("QM_GAME_MEMBERS");
-        const listQmMsg = qmScreen.getMessage("TEAMS_LIST");
-
-        const allPlayers = this.game.getTeams()
-            .map(x=>{
-                return x.players.map(p=>{
-                    return {t: x.name, ...p}
-                })
-            })
-            .flat()
-            .map(x=>{
-                return {
-                    id:x.id,
-                    value: x.t + " " + x.name
-                };
-            });
-
         listMsg.array = Array.from(allPlayers);
-        listQmMsg.array = Array.from(allPlayers);
+        
         await ownerScreen.updateMessage(ctx, "TEAMS_LIST");
-        await qmScreen.updateMessage(ctx, "TEAMS_LIST");
 
         // also update messages with teams
         var team = this.game.getTeam(teamId);
@@ -227,7 +218,7 @@ class QuizGameManager{
             const ps = p.getAppStateFor("g2");
             const pcs = ps.findScreen("GAME_TEAM_CHOICE");
             const pMsg = pcs.getMessage("MY_TEAM");
-            pMsg.addItem(player.id + "", userName);
+            pMsg.addItem(userId + "", userName);
             //await pcs.arrayAddItemTg("LIST", ctx, {id: player.id + "", value: userName});
             await pcs.updateMessage(ctx, "MY_TEAM");
         }
@@ -239,7 +230,7 @@ class QuizGameManager{
                 const ps = p.getAppStateFor("g2");
                 const pcs = ps.findScreen("GAME_TEAM_CHOICE");
                 const pMsg = pcs.getMessage("MY_TEAM");
-                pMsg.removeItem(player.id + ""); //.arrayRemoveItemTg("LIST", ctx, player.id + "");
+                pMsg.removeItem(userId + ""); //.arrayRemoveItemTg("LIST", ctx, player.id + "");
                 await pcs.updateMessage(ctx, "MY_TEAM");
             }
         }
@@ -273,12 +264,45 @@ class QuizGameManager{
                 state: this.game.getState(),
                 createdOn: new Date(),
                 gameLog:[],
-                id1: this.game.gameId
+                id1: this.game.gameId,
+                title: this.game.title
             });
             const strId = res._id.toString();
             this.game.uniqueId = strId;
         }
     };
+
+    getAllPlayers = () => {
+        return this.game.getTeams()
+                .map(x=>{
+                    return x.players.map(p=>{
+                        return {t: x.name, ...p}
+                    })
+                })
+                .flat()
+                .map(x=>{
+                    return {
+                        id:x.id,
+                        value: x.t + " " + x.name
+                    };
+                });
+    };
+
+    /**
+     * 
+     * @param {*} rnum 
+     * @returns {QuizRound}
+     */
+    startRound = async (rnum) => {
+        var rn = await this.game.startRound(rnum);
+        await this.apps.emit("G2" + this.game.uniqueId, "round", {
+            number: rn.roundNumber,
+            title: rn.name,
+            questionsCount: rn.quizzesArray.length,
+            state: "started"
+        });
+        return rn;
+    }
 }
 
 module.exports = {

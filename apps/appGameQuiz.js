@@ -6,11 +6,12 @@ const { Context } = require("telegraf");
 const { QuizGame } = require("../quiz_game");
 const { GameManager } = require("../game_manager");
 const { QuizGameManager } = require("../quizgame_manager");
-const { getDb } = require("../data/db");
+const { getDb, getGameInstanceHeader } = require("../data/db");
 const { MGameInstance } = require("../data/model");
 const { TGCommandEventTrigger, TGCallbackEventTrigger, TGMessageEventTrigger } = require("../lib/Triggers");
 const { QuizGameBuilder } = require("../game_builder");
 const { UIMessage } = require("../lib/UIScreen");
+const { leftJoin, tidy } = require("@tidyjs/tidy");
 
 
 
@@ -50,14 +51,21 @@ class AppGameQuiz extends AppBase {
 		var trCmdGame2 = new TGCommandEventTrigger("trCmdGame2", "game2", null);
 		trCmdGame2.handlerFunction = this.step01_01_enterID;
 
-		var trMsgstep01_02_enterID = new TGMessageEventTrigger("step01_02_enterID");
+		var trMsgstep01_02_enterID = new TGMessageEventTrigger("trMsgstep01_02_enterID");
 		trMsgstep01_02_enterID.handlerFunction = this.step01_02_enterID;
+
+		var trCmdSetPlanId = new TGCommandEventTrigger("trCmdSetPlanId", "gm2plid");
+		trCmdSetPlanId.handlerFunction = this.step01_02_enterID;
 
 		var trCbGameOk = new TGCallbackEventTrigger("trCbGameOk", null, "g2\!0201\!ok");
 		trCbGameOk.handlerFunction = this.step02_02_selectGameOk;
 
 		var trCbGameCancel = new TGCallbackEventTrigger("trCbGameCancel", null, "g2\!0201\!cancel");
 		trCbGameCancel.handlerFunction =this.step02_03_selectGameCancel;
+
+		var trCbGameAccess = new TGCallbackEventTrigger("trCbGameAccess", null, "g2\!0202a\!");
+		trCbGameAccess.handlerFunction = this.change_access;
+
 
 		var trCbSelectShowQuestions = new TGCallbackEventTrigger("trCbSelectShowQuestions", null, "g2\!0202\!(yes|no)");
 		trCbSelectShowQuestions.handlerFunction = this.step02_04_settingsQScoreCount;
@@ -109,8 +117,8 @@ class AppGameQuiz extends AppBase {
 		
 
 		return [
-			trCmdGame2, trMsgstep01_02_enterID,
-			trCbGameOk, trCbGameCancel,
+			trCmdGame2, trMsgstep01_02_enterID, trCmdSetPlanId,
+			trCbGameOk, trCbGameCancel, trCbGameAccess,
 			trCbSelectShowQuestions,
 			trCbSelectScoreMode, trCbSelectAudienceMode, trCbAdmSelectGameStart, trCbAdmSelectGameCancel,
 
@@ -183,22 +191,13 @@ class AppGameQuiz extends AppBase {
         state.game = g;
 		state.roles.push("owner");
 
-		const dbr = await MGameInstance.create({
-			createdOn: new Date(),
-			id1: code,
-			id2: g.getCodeForPlayers(),
-			id3: g.getCodeForAudience(),
-			state: dictGameQuiz.gameStates.created,
-			gameLog: []
-		});
-		state.instanceId = dbr._id.toString();
+		
 
 		const link = this.getSettingsItem("webhost");
 		var linkAddress  = "";
 		if(link != null){
 			// the parameter was set
 			linkAddress = link.value + "plans/list";
-
 			linkAddress = "\nYou can find the list of available quizzes here " + linkAddress;
 		}
 
@@ -208,12 +207,16 @@ class AppGameQuiz extends AppBase {
 ## START_TITLE
 The game is still being created. You can use the following codes to invite people in the game:
 Quiz master - {{ CODE_QUIZMASTER }}
-Players - {{ CODE_PLAYERS }}
+Players - {{ CODE_PLAYERS }}. {{ LINK_PLAYERS }}
 Audience - {{ CODE_AUDIENCE }}
+
+{{ LINK_GAME_VIEW }}
 
 Please, type the short code of a quiz you would like to use this time
 
 {{ PLANS_LINK }}`;
+
+		
 
 		const msg = s.uiReg3(msgDef, true);
 		const screen = s.uiGetCurrentScreen();
@@ -221,6 +224,7 @@ Please, type the short code of a quiz you would like to use this time
 		msg.setPlaceholder("CODE_PLAYERS", g.getCodeForPlayers());
 		msg.setPlaceholder("CODE_AUDIENCE", g.getCodeForAudience());
 		msg.setPlaceholder("PLANS_LINK", linkAddress);		
+		
 
 		await screen.postMessage(ctx, "START_TITLE", userId);
 
@@ -243,8 +247,8 @@ Ok, you have chosen {{ GAMEPLAN }}
 		const scr = s.uiGetCurrentScreen();
 
 		var txtGamePlanID = ctx.message.text;
-		if(txtGamePlanID.startsWith("/start")){
-			txtGamePlanID = txtGamePlanID.substring(7,100);
+		if(ctx.params!=null && ctx.params.data!=null){//txtGamePlanID.startsWith("/start C-gm2-gm2plid-")){
+			txtGamePlanID = ctx.params.data;//txtGamePlanID.substring(7,100);
 		}
 
 		const gamePlanExists = 
@@ -290,8 +294,9 @@ First five questions:
 ===
 {{ g2!0201!ok | Confirm | ok }} {{ g2!0201!cancel | Cancel | cancel }}`;
 
+		const scr = s.uiInside("START");
 		const msg = s.uiReg3(msgDef, true);
-		const scr = s.uiGetCurrentScreen();
+		//const scr = s.uiGetCurrentScreen();
 
 
 		const summary = await this.dbContext.getGamePlanSummary(state.planId);
@@ -359,22 +364,93 @@ to the players on their devices?
 ===
 {{ g2!0202!yes | Yes | yes }}  {{ g2!0202!no | No | no }}`;
 
+const msgAcDef = 
+`# GAME_PARS
+## ACCESS
+You can use the buttons below to enable or disable access for different users.
+===
+{{ g2!0202a!contr | QuizManager ( YES ) | btnqm }}
+{{ g2!0202a!player | Players ( YES ) | btnplayer }}
+{{ g2!0202a!aud | Audience ( NO  ) | btnaud }}`;
+
 		// load a new quiz instance
 		const builder = new QuizGameBuilder();
 
 		await builder.setQuizPlan(state.planId);
 		builder.build(state.game);
 
+		const dbr = await MGameInstance.create({
+			createdOn: new Date(),
+			id1: state.game.getCode(),
+			id2: state.game.getCodeForPlayers(),
+			id3: state.game.getCodeForAudience(),
+			state: dictGameQuiz.gameStates.created,
+			gameLog: [],
+			title: state.game.title,
+			planId: state.planId
+		});
+		state.instanceId = dbr._id.toString();
+		state.game.uniqueId=state.instanceId;
+
 		var scr = s.uiInside("START");
+		var m = scr.getMessage("START_TITLE");
+		var linkAddressPlayers  = "";
+		const link = this.getSettingsItem("webhost");
+		if(link != null){
+			// the parameter was set
+			linkAddressPlayers = link.value + "join/players/" + state.instanceId;
+			linkAddressPlayers = "Page with QR code:  " + linkAddressPlayers;
+			var linkAddressGameView = "Game view: " + link.value + "game/game_view/" + state.instanceId;//.game.uniqueId;
+			m.setPlaceholder("LINK_PLAYERS", linkAddressPlayers);
+			m.setPlaceholder("LINK_GAME_VIEW", linkAddressGameView)
+			await scr.updateMessage(ctx, "START_TITLE");
+		}
+
+		//var scr = s.uiInside("START");
 		scr.getMessage("PLAN_SUMMARY").hideAllButtons();
 		await scr.updateMessage(ctx, "PLAN_SUMMARY");
 
 		scr = s.uiInside("GAME_PARS");
+		var msgAc = s.uiReg3(msgAcDef, true);
+		await scr.postMessage(ctx, "ACCESS", ctx.from.id);
 		var msg = s.uiReg3(msgDef, true);
 		await scr.postMessage(ctx, "QSHOW", ctx.from.id);		
 
 		s.watchCallback();
 		return true;
+	};
+
+/**
+	 * Access settings were modified
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoGameQuiz} state 
+	 */
+	async change_access  (s, ctx, state)  {
+		var g  = state.game;
+
+		const prefix = "g2!0202a!";
+		let mode = ctx.callbackQuery.data.substring(prefix.length);
+		var scr = s.uiInside("GAME_PARS");
+		var m = scr.getMessage("ACCESS");
+
+		switch(mode){
+			case "contr":
+				g.joinControl.qm = !g.joinControl.qm;
+				m.buttons.find(b=>b.reference == "btnqm").text = `QuizManager ( ${g.joinControl.qm?"YES":"NO "} )`;
+				break;
+			case "player":
+				g.joinControl.player = !g.joinControl.player;
+				m.buttons.find(b=>b.reference == "btnplayer").text = `Players ( ${g.joinControl.player?"YES":"NO "} )`;
+				break;
+			case "aud":
+				g.joinControl.aud = !g.joinControl.aud;
+				m.buttons.find(b=>b.reference == "btnaud").text = `Audience ( ${g.joinControl.aud?"YES":"NO "} )`;
+				break;
+		}
+		
+		await scr.updateMessage(ctx, "ACCESS");
+
 	};
 /**
 	 * Plan ID was discarded
@@ -565,7 +641,15 @@ Waiting for Teams and Quiz Master to join the game
 		var game = comRef.dictGames[gameID];
 
 		if(game != null){
+			// check permissions
+			if(game.joinControl.qm == false){
+				// unavailable
+				await ctx.reply("You cannot join this game at this time");
+				return false;
+			}
+
 			state.game = game;
+			
 			return await this.step03_02_QMRequestOK(s, ctx, state);
 		} else {
 			return await this.step03_03_QMRequestError(s, ctx, state);
@@ -656,7 +740,7 @@ The information about teams will appear in this message.
 {{ ? | List of teams | }}
 `;
 
-
+		var mgr = new QuizGameManager(state.game, ctx.telegram);
 		// notify quiz master
 		const qm = state.game.getQuizMasterCandidate();
 		if(qm){
@@ -668,7 +752,7 @@ The information about teams will appear in this message.
 			// these messages can be accessed later
 			const qmSess = await this.getSessionOfUser(qmid);
 			var scr = qmSess.uiInside("QM_GAME_MEMBERS");
-			const msgQM = qmSess.uiReg3(msgDef, false);
+			const msgQM = qmSess.uiReg3(msgDef, false); var arr = mgr.getAllPlayers(); if(arr!=null){ msgQM.array=arr; }
 			await scr.postMessage(ctx, "TEAMS_LIST", qmid);
 
 			// remove buttons
@@ -729,21 +813,30 @@ Game code was not sent. Please, use the following format: /play2 GameCode`;
 
 		// player
 		var pl = ctx.message.from.id;
-		// take parameters from the input
-		var args = ctx.message.text.split(" ");
-		// 1 = id2 of the game for which the person would like to become a quiz master
-        const gameID = args[1];
+		
+		// 
+		var gameID = "";
+		if(ctx.params!=null && ctx.params.data!=null){
+			gameID = ctx.params.data;
+			var gi = await getGameInstanceHeader(gameID);
+			gameID = gi.id2; await ctx.deleteMessage(ctx.message.message_id);
+		}else{
+			// take parameters from the input
+			var args = ctx.message.text.split(" ");
+			gameID = args[1];
+		}
+        
 		if(gameID == null){
 			await scr.postMessage(ctx, "ERROR_NA");
 			return false;
 		}
+
 		var comRef = this.getSharedData();
 		if(comRef.dictGameByPlayerCode == null){
 			await scr.postMessage(ctx, "WARNING_COMMAND");
 			return false;
 		}
-		state.code2 = gameID;
-		state.roles.push("player");
+		
 		// game object
 		/**@type {QuizGame} */
 		var game = comRef.dictGameByPlayerCode[gameID];
@@ -751,6 +844,17 @@ Game code was not sent. Please, use the following format: /play2 GameCode`;
 		// find the game object
 
 		if(game != null && game.getState() == "WAITING"){
+
+			// check permissions
+			if(game.joinControl.player == false){
+				// unavailable
+				await ctx.reply("You cannot join this game at this time");
+				return false;
+			}
+
+			state.code2 = gameID;
+			state.roles.push("player");
+
 			state.game = game;
 			return await this.step04_02_joinTheGame(s, ctx, state);
 		}else{
@@ -938,7 +1042,8 @@ Quiz master was notified`;
 		let roundId = (ctx.callbackQuery.data + "").substring(prefix.length);
 
 		// 
-		const roundObj = await state.game.startRound(roundId);
+		const gm = new QuizGameManager(state.game, ctx.telegram, this.getAppCore());
+		const roundObj = await gm.startRound(roundId);// state.game.startRound(roundId);
 		if(roundObj == null){
 			await ctx.reply("Error");
 			return false;
@@ -979,7 +1084,12 @@ Press button to open the question {{ QUESTION | Question number | }}
 {{ g2!0508!cancel | Cancel game | cancel }}`;
 		
 		const qm = state.game.getQuizMaster().userId;
-		const qmS = await this.getSessionOfUser(qm); const prevScr = qmS.uiInside("QM_CONTROL_PANEL"); const msgPrev = prevScr.getMessage("START"); msgPrev.hideAllButtons(); await prevScr.updateMessage(ctx, "START");
+		const qmS = await this.getSessionOfUser(qm); 
+		const prevScr = qmS.uiInside("QM_CONTROL_PANEL"); 
+		const msgPrev = prevScr.getMessage("START"); 
+		msgPrev.hideAllButtons(); 
+		await prevScr.updateMessage(ctx, "START");
+
 		const qmScr = qmS.uiInside("QM_ROUND");
 		const msgQm = qmS.uiReg3(msgDefQM, true);
 		msgQm.setPlaceholder("ROUND", round);
@@ -1009,13 +1119,16 @@ Title: {{ RNAME | Title | }}`;
 			
 			await plSrc.postMessage(ctx, "QM_ROUND_TITLE", pl);
 		}
+
+		/* notification through web sockets */
+		//this.emit(state.instanceId, "round", { roundName, roundQNum, roundId });
 		
 		return true;
 	};
 
 
 /**
-	 * Show one question
+	 * Show one question and start waiting for the answers
 	 * @param {SessionObject} s 
 	 * @param {Context} ctx 
 	 * @param {asoGameQuiz} state 
@@ -1025,61 +1138,104 @@ Title: {{ RNAME | Title | }}`;
 		const prefix = "g2!0508!start!";
 		let pars = (ctx.callbackQuery.data + "").substring(prefix.length);
 		let pars2 = pars.split("!");
-		let rId = prs2[0];
+		let rId = pars2[0];
+
+		// question number
 		let qId = pars2[1];
 
-		// depending on parameters show the question and buttons
-		
-		if(state.game.parameters.qShow == true){
-			// send text to the teams
-			for (const p of state.game.getPlayers()) {
-				// all players
-				const pl = p.userId;
-				const plS = await this.getSessionOfUser(pl);
-				const plSrc = plS.uiInside("QM_ROUND");
-				const msgPl = plSrc.uiReg3(msgDefPlayers, true);
-				msgPl.setPlaceholder("ROUND", roundObj.roundNumber);
-				msgPl.setPlaceholder("QUESTIONS", roundQNum);
-				msgPl.setPlaceholder("RNAME", roundObj.name);
-				
-				await plSrc.postMessage(ctx, "QM_ROUND_TITLE", pl);
-			}
-		}else{
-			// send only announcement
-		}
+		// current question:
+		var question = state.game.getQuestionObj(qId);
 
-		/*
-		#GAME_ACTIVE
-		##QUESTION
-		Round {{ROUND_NUM}}
-		Question {{QUESTION_NUM}}
-		{{QUESTION_TEXT}}
-		Options:
-		{{?}}
-		------ ------
-		   O1    O2
-		------ ------
-		   03    04
-		*/
+	// question may include a media attachment - a picture.
 
-		const q = state.game.question;
-
-		s.uiInside("GAME_ACTIVE");
-		var template = 
+		var msgPlayerQuestion = 
 `# GAME
 ## QUESTION
-Round {{ROUND_NUM}}
-Question {{QUESTION_NUM}}
-{{QUESTION_TEXT}}
+******* Round {{ROUND_NUM | Curent round number | }}. Question {{QUESTION_NUM | Current question number |}} **************************
+{{ QUESTION_TEXT | Question text | }}
 Choose correct option:\n
-{{?}}`;
-		var msgGameActive = new UIMessage(template, "QUESTION", options, );
-		s.uiReg2(msgGameActive);
-		s.uiCommit();
+{{ ? }}
+===
+{{ ? | Buttons with options | btnOptions }}`; // options can be added via an array
 
-		// 1. Open current question
-		// 2. Notify all players
-		// 3. Notify 
+		
+
+		// we will have 4 buttons anyway
+		var btns = 
+			[
+				{ code: "g2!answer!pl!" + rId + "!1", btext: "🐶", optionNumber: 0 }, 
+				{ code:"g2!answer!pl!" + rId + "!2", btext:"🦊", optionNumber: 1 }, 
+				{ code: "g2!answer!pl!" + rId + "!3", btext:"🐯", optionNumber: 2 }, 
+				{ code:"g2!answer!pl!" + rId + "!4", btext:"🐸",  optionNumber: 3 }
+			];
+
+			var joined = tidy(btns, leftJoin(
+				question.options.map(o=>{ 
+						return { optionNumber:o.optionNumber, id:o.id, text:o.text }; 
+					}), 
+				{ 
+					by:
+						{ 
+							optionNumber: "optionNumber" 
+						} 
+				} ) )
+				.map(x=>{
+					return {
+						code: x.code,
+						text: x.id == null ? "-" : x.btext,
+						hide: x.id == null, 
+						fullText: x.btext + " - " + x.text
+					}
+				});
+
+		// options to be shown in the message
+		var texts = joined
+			.filter(o=>o.hide == false)
+			.map(o=>{
+				return {
+					id: o.code,
+					value: o.fullText
+				};
+			});
+		// depending on parameters show the question and buttons
+	
+		// send text to the teams
+		for (const p of state.game.getPlayers()) {
+			// all players
+			const pl = p.userId;
+			const plS = await this.getSessionOfUser(pl);
+			const plSrc = plS.uiInside("GAME");
+			
+			const msgPl = plS.uiReg3(msgPlayerQuestion, false);
+
+			msgPl.setBtnPlace("btnOptions", joined);
+
+			msgPl.setPlaceholder("ROUND_NUM", rId);
+			msgPl.setPlaceholder("QUESTION_NUM", qId);
+
+			if(state.game.parameters.qShow == true){
+				// show question text
+				msgPl.setPlaceholder("QUESTION_TEXT", question.questionText);
+			}else{
+				msgPl.setPlaceholder("QUESTION_TEXT", "Please, find the question on the screen");
+			}
+
+			// all options to be shown
+			msgPl.array = Array.from(texts);
+			
+			var bp = msgPl.buttonPlaces.find(x=>x.reference == "btnOptions");
+			bp.maxInLine = 2;
+
+			msgPl.createButtonsTable();
+
+			await plSrc.postMessage(ctx, "QUESTION", pl);
+		}
+
+		
+		// questions with media should be visualized as picture and then message with text.
+		state.game.setState("Q_VISIBLE");
+
+		return true;
 	};
 /**
 	 * Handle GameID message

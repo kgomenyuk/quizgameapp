@@ -4,6 +4,7 @@ var jwt = require('jsonwebtoken');
 
 var express = require("express");
 const crypto = require('crypto');
+const { AppCore } = require('../../lib/AppBase');
 var router = express.Router();
 
 const checkSignature = ({ hash, ...userData }, botKey) => {
@@ -32,14 +33,16 @@ const checkSignature = ({ hash, ...userData }, botKey) => {
 
 router.get("/start", async (req, res) => {
     try{
-        
+        /**@type {AppCore} */
+        var c = req.appCore;
+        var l = c.botInfo.userName;
         const nonce = crypto.randomBytes(16).toString("base64");
 
           res
           .setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-eval' https://telegram.org https://oauth.telegram.org/ 'nonce-"+nonce+"'")
           .send(`<html>
           <body>
-          <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="onegamequizbot" data-size="large" data-userpic="false" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
+          <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="${ l }" data-size="large" data-userpic="false" data-onauth="onTelegramAuth(user)" data-request-access="write"></script>
           <script type="text/javascript" nonce="${nonce}">
             var context = {
                 jsonUser: "",

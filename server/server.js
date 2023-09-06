@@ -2,6 +2,9 @@ require("dotenv").config({path:"./.env" });
 require("dotenv").config({path:"./launch/.env" });
 const webGameQuizPages = require("../apps/webGameQuiz/index");
 const webGameQuizPlans = require("../apps/webGameQuiz/plans");
+const webGameQuizPlayers = require("../apps/webGameQuiz/players");
+const webGameQuizView = require("../apps/webGameQuiz/qview");
+const webGameQuizTest = require("../apps/webGameQuiz/test");
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
@@ -10,6 +13,7 @@ const exs = require('express-session');
 const bodyParser = require('body-parser');
 const cookieParser = require("cookie-parser");
 const MongoStore = require('connect-mongo');
+const fs = require("fs");
 
 
 var JwtStrategy = require("passport-jwt").Strategy,
@@ -48,7 +52,9 @@ passport.use(
 var app = express();
 app.set('view engine', 'pug');
 app.set('views', './views');
+app.use(express.static('public')); // static content in public folder
 var http = require('http');
+var https = require('https');
 var debug = require('debug')('bot');
 var { GameBot } = require('../bot');
 
@@ -57,10 +63,11 @@ const appsToLoad = require("../launch/main");
 const { SessionManager } = require("../lib/Sessions");
 const dbm = require("../data/db");
 const { AppCore } = require("../lib/AppBase");
-var apps = new AppCore({});
+var apps =null;// new AppCore({});
 var sman = new SessionManager();
 
 var bot = new GameBot();
+const getApps = ()=>{return apps;};
 
 
 app.use(
@@ -78,7 +85,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use((req, res, next) => {
-  req.appCore = apps;
+  req.appCore = getApps();
   next();
 });
 
@@ -94,6 +101,21 @@ app.use(
   "/plans",
   passport.authenticate(["jwt"], { session: false }),
   webGameQuizPlans
+);
+app.use(
+  "/join",
+  passport.authenticate(["anonymous", "jwt"], { session: false }),
+  webGameQuizPlayers
+);
+app.use(
+  "/game",
+  passport.authenticate(["anonymous", "jwt"], { session: false }),
+  webGameQuizView
+);
+app.use(
+  "/test",
+  passport.authenticate(["anonymous", "jwt"], { session: false }),
+  webGameQuizTest
 );
 
 
@@ -126,7 +148,14 @@ app.set('port', port);
 /**
  * Create HTTP server.
  */
-var server = http.createServer(app);
+var SSL = process.env["SSL_CA"]!=null && process.env["SSL_CA"]!="" && process.env["SSL_KEY"]!=null && process.env["SSL_KEY"]!="";
+var server = SSL==true ? 
+    https.createServer(
+        {
+          cert: fs.readFileSync(process.env["SSL_CA"]), 
+          key: fs.readFileSync(process.env["SSL_KEY"]) 
+        }, app) 
+         : http.createServer(app);
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -200,7 +229,7 @@ async function launch(options) {
 	
 	const isDev = options.isDevMode;
 	apps = new AppCore(options);
-
+  
   
 	const currentTg = new tg.Telegraf(options.apiKey);
 	currentTg.catch((err) => {
@@ -218,6 +247,8 @@ async function launch(options) {
 		await apps.start({
 			apikey: options.apiKey
 		});
+
+    require("./qview_server")(server, apps);
 	}
 
   const botInfo = await currentTg.telegram.getMe();
@@ -263,3 +294,5 @@ app.startApplication = async () => {
     await dbm.disconnectDb();
 	}
 };
+
+
