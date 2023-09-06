@@ -5,6 +5,8 @@ class asoCourses {
  name;
  cnum;
  id;
+ course;
+ state;
 }
 
 module.exports = {asoCourses};

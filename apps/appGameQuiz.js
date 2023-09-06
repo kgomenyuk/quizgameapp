@@ -826,7 +826,6 @@ Now your team is: {{ TEAM | Currently chosen team | }}
 
 		const prefix = "g2!0402!";
 		let teamId = (ctx.callbackQuery.data + "").substring(prefix.length);
-
 		const game = state.game;
 		var team = game.getTeams().find(x=>x.id == Number( teamId));
 		

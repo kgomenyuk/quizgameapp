@@ -15,8 +15,17 @@ CCourse.index({courseNumber: 1}, {unique: true});
 
 // a single question
 const MCourse = m.model("mg_course", CCourse);
-
+const CStudent = new m.Schema(
+    {
+        studentName: String, // unique key
+        course: String,    
+        studentNumber: Number
+    }
+);
+// quiz id now will be unique
+CStudent.index({studentNumber: 1}, {unique: true});
+const MStudent = m.model("mg_student", CStudent);
 module.exports = {
-    MCourse
+    MCourse, MStudent
 }
    
