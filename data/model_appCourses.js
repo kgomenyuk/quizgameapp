@@ -18,7 +18,7 @@ const MCourse = m.model("mg_course", CCourse);
 const CStudent = new m.Schema(
     {
         studentName: String, // unique key
-        course: String,    
+        courseName: String,    
         studentNumber: Number
     }
 );
