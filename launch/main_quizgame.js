@@ -1,5 +1,6 @@
 const { AppCourses } = require("../apps/appCourses");
 const { AppGameQuiz } = require("../apps/appGameQuiz");
+const { AppSurveyFields } = require("../apps/appSurveyFields");
 const { UIMessage } = require("../lib/UIScreen");
 
 UIMessage.debug = true;
