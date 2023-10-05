@@ -30,6 +30,7 @@ const CSurveyAnswers = new m.Schema(
     {
         _id: m.SchemaTypes.ObjectId,
         surveyCode: String, // unique key
+        refCode: String,
         createdTime: Date,
         uid: String,
         surveyFields: [

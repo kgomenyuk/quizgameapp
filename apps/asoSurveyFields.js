@@ -12,9 +12,13 @@ class asoSurveyFields {
     fields = [];
     uid = 0;
     surveyCode = "";
+    refCode = "";
+    rewriteAnswers = false;
     createdTime = new Date();
     lang = "";
     expected = "";
+
+    currentField = null;
 
     currentSurvey = {
         _id: null,

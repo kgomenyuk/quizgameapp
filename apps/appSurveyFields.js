@@ -34,6 +34,14 @@ class AppSurveyFields extends AppBase {
 			ru:"Завершить",
 			en:"Quit"
 		},
+		"0103_SRV_QUIT":{
+			ru:"Опрос был отменён",
+			en:"The survey was cancelled"
+		},
+		"0301_SRV_ANS": {
+			ru: "Ваш ответ",
+			en: "Your answer"
+		}
 	};
 
 	_init() {
@@ -92,6 +100,7 @@ class AppSurveyFields extends AppBase {
 	_getTriggers () {
 
 		var trgs = [];
+		var alias = this.currentAlias;
 
 		// start the survey
 		var trCmdaddC = new TGCommandEventTrigger("trCmdaddC", this.startCommand, null);
@@ -101,6 +110,10 @@ class AppSurveyFields extends AppBase {
 		var trCbLang = new TGCallbackEventTrigger("trCbLang", null, this.currentAlias + "_0102_" );
 		trCbLang.handlerFunction = this.step01_02;
 		trgs.push(trCbLang);
+
+		var trCbQuit = new TGCallbackEventTrigger("trCbQuit", null, this.currentAlias + "_0102close");
+		trCbQuit.handlerFunction = this.step_quit;
+		trgs.push(trCbQuit);
 
 		var trCbSurvey = new TGCallbackEventTrigger("trCbSurvey", null, this.currentAlias + "_0103_" );
 		trCbSurvey.handlerFunction = this.step01_03;
@@ -126,17 +139,48 @@ class AppSurveyFields extends AppBase {
                 //var trg = new TGMessageEventTrigger("survey_step_" + idx + "_m", (x,y, z)=>z.nextField == pos);
                 //trg.handlerFunction = this.step_show_field;
 
-				var trgBack = new TGCallbackEventTrigger("survey_step_" + idx + "_b", (x,y, z)=>z.nextField == pos);
+				var trgBack = new TGCallbackEventTrigger("survey_step_" + idx + "_b", (x,y, z)=>{
+					return z.curField == pos
+						&& ( y.data.endsWith(alias + "_0103back") || y.data.endsWith(alias + "_0201back") );
+				});
                 trgBack.handlerFunction = this.step_go_back;
 
-				var trgFieldAnswer = new TGMessageEventTrigger("survey_step_" + idx + "_answer", 
-						(x,y, z)=>z.nextField == pos && z.expected == "answer");
-                trgFieldAnswer.handlerFunction = this.step_get_answer;
+				var trgQuit = new TGCallbackEventTrigger("survey_step_" + idx + "_q", (x,y, z)=>{
+					return z.curField == pos
+						&& ( y.data.endsWith(alias + "_0103quit") || y.data.endsWith(alias + "_0201quit") );
+				});
+                trgQuit.handlerFunction = this.step_quit;
 
-				//trgs.push(trg);
+				var trgSkip = new TGCallbackEventTrigger("survey_step_" + idx + "_skip", (x,y, z)=>{
+					return z.curField == pos
+						&& ( y.data.endsWith(alias + "_0103skip") || y.data.endsWith(alias + "_0201skip") );
+				});
+                trgSkip.handlerFunction = this.step_skip;
+
+				if(field.fieldType == "message"){
+					// message
+					var trgFieldAnswer = new TGMessageEventTrigger("survey_step_" + idx + "_answer", 
+							(x,y, z)=>z.curField == pos && z.expected == "answer");
+					trgFieldAnswer.handlerFunction = this.step_get_answer;
+					trgs.push(trgFieldAnswer);
+				}
+
+				if(field.fieldType == "choice"){
+					// choice
+					//var options = field.fieldOptions;
+					//for (let index = 0; index < options.length; index++) {
+						//const element = options[index];
+					//}
+					var trgFieldAnswerO = new TGCallbackEventTrigger("survey_step_" + idx + "_opt", 
+							(x,y, z)=>z.curField == pos && z.expected == "choice" && y.data.startsWith(alias + "_0201_"));
+					trgFieldAnswerO.handlerFunction = this.step_get_answer_option;
+					trgs.push(trgFieldAnswerO);
+				}
+				
 				trgs.push(trgBack);
-				trgs.push(trgFieldAnswer);
-
+				
+				trgs.push(trgQuit);
+				trgs.push(trgSkip);
             });
         }
 
@@ -220,7 +264,7 @@ class AppSurveyFields extends AppBase {
 Choose your language {{ANSWER | | }}
 ===
 {{ ? | 2 | btn_forms }}
-{{ ${ this.currentAlias }_0102_close | Close | btn_close }}`;
+{{ ${ this.currentAlias }_0102close | ⏏️ | btn_close }}`;
 
 		const screen = s.uiInside("SURVEY");
 		const msg = s.uiReg3(msgDef, false);
@@ -259,7 +303,8 @@ Choose your language {{ANSWER | | }}
 ## LIST
 ${this.texts["0102_SRV_CHOOSE"][lang]} {{ ANSWER | | }}
 ===
-{{ ? | 1 | btn_surveys }}`;
+{{ ? | 1 | btn_surveys }}
+{{ ${ this.currentAlias }_0102close | ⏏️ | btn_close }}`;
 
 		var list = this.surveys.map(x=>{
 			return {
@@ -272,7 +317,7 @@ ${this.texts["0102_SRV_CHOOSE"][lang]} {{ ANSWER | | }}
 		
 		const screen = s.uiInside("SURVEY");
 		const prev = screen.getMessage("START");
-		prev.setPlaceholder("ANSWER", `${this.texts["0102_LANG_CHOSEN"][state.lang]}`);
+		prev.setPlaceholder("ANSWER", "\n"+`${this.texts["0102_LANG_CHOSEN"][state.lang]}`);
 		prev.hideAllButtons();
 		await screen.updateMessage(ctx, "START");
 
@@ -300,24 +345,30 @@ ${this.texts["0102_SRV_CHOOSE"][lang]} {{ ANSWER | | }}
 		
 		state.surveyCode = srv;
 		state.uid = ctx.from.id;
+		
 		var survey = this.surveys.find(x=>x.surveyCode == srv);
 		
-
+		state.rewriteAnswers = survey.rewriteAnswers;
+		state.refCode = survey.refCode;
 		
 		const screen = s.uiInside("SURVEY");
 		const prev = screen.getMessage("LIST");
-		prev.setPlaceholder("ANSWER", survey.description[state.lang]);
+		prev.setPlaceholder("ANSWER", "\n" + survey.description[state.lang]);
 		prev.hideAllButtons();
 		await screen.updateMessage(ctx, "LIST");
 
 		// start 
+		//state.nextField = 1;
+		state.curField = 0;
 		state.nextField = 1;
 		state.maxField = survey.surveyFields.length;
 		
 
 		await this.stateCreateAnswer(state);
 
+
 		return this.step_show_field(s, ctx, state);
+		// start from position = 1
 
 		//s.watchCallback();
 		//return true;
@@ -332,6 +383,8 @@ async stateCreateAnswer(state){
 	state.currentSurvey.uid = state.uid;
 	state.currentSurvey.surveyCode = state.surveyCode;
 	state.currentSurvey._id = new ObjectId();
+	//state.currentSurvey.rewriteAnswers = state.rewriteAnswers;
+	state.currentSurvey.refCode = state.refCode;
 	
 	var r = await MSurveyFieldsAnswers.create(state.currentSurvey);
 
@@ -372,18 +425,12 @@ async stateCreateAnswer(state){
 			state.currentSurvey,
 			{upsert: true});
 
-		/*{
-			fieldCode: state.fieldObject.fieldCode, 
-			position: Number, 
-			fieldText: String,
-			fieldOption: String,
-			createdTime: Date
-		}*/
+	
 	}
 
 
 	/**
-	 * Handle game2 command
+	 * next field
 	 * @param {SessionObject} s 
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
@@ -400,39 +447,75 @@ async stateCreateAnswer(state){
 			throw new Error("Survey not found");
 		}
 
-		var pos = state.nextField;
-		const prefix = this.currentAlias + "_0103_";
+		if(cfield.fieldType == "message"){
+			return this.step_show_field_message(s, ctx, state);
+		}
+
+		if(cfield.fieldType == "choice"){
+			return this.step_show_field_options(s, ctx, state);
+		}
+
+	}
+
+
+	/**
+	 * next field
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
+	async step_show_field_message(s, ctx, state){
+		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
+		var cfield = null;
+		if(survey!=null){
+			cfield = survey.surveyFields.find(f=>f.position == state.nextField);
+			if(cfield == null){
+				throw new Error("Field unknown");	
+			}
+		}else{
+			throw new Error("Survey not found");
+		}
+
+		state.prevField = state.curField;
+		state.curField = state.nextField;
+		state.nextField = state.curField + 1;
+		
+		const prefix = this.currentAlias + "_0103";
 		const lang = state.lang;
 		
 		// show the prompt related to one field in a survey
 		var msgDef =
 `# SURVEYFIELD
-## FIELD${pos}
+## FIELD${ state.curField }
 {{ FTEXT | Field prompt | Default text }} {{ ANSWER | user's answer | }}
 ===
-{{ ${ prefix + "back" } | ${ this.texts["0103_BTN_BACK"][lang] } | btn_back }}
-{{ ${ prefix + "skip" } | ${ this.texts["0103_BTN_SKIP"][lang] } | btn_skip }}
-{{ ${ prefix + "skip" } | ${ this.texts["0103_BTN_QUIT"][lang] } | btn_quit }}`;
+{{ ${ prefix + "back" } | ⬅️ | btn_back }}{{ ${ prefix + "skip" } | ⏩ | btn_skip }}{{ ${ prefix + "quit" } | ⏏️ | btn_quit }}`;
 		
 		const userId = ctx.from.id;
-		state.curField = pos;
-		
 		
 		const screen = s.uiInside("SURVEYFIELD");
-		const msg = s.uiReg3(msgDef, true);
+		const msg = s.uiReg3(msgDef, false);
 		msg.setPlaceholder("FTEXT", cfield.fieldDescription[lang]);
 
 		// if we have previous then hide its buttons
-		if(state.prevField > 1){
-			const prev = screen.getMessage(`FIELD${pos-1}`);
+		if(state.prevField > 0){
+			const prev = screen.getMessage(`FIELD${ state.prevField }`);
 			//prev.setPlaceholder("ANSWER", ">>>>>");
 			prev.hideAllButtons();
-			await screen.updateMessage(ctx, `FIELD${pos-1}`);
+			await screen.updateMessage(ctx, `FIELD${ state.prevField }`);
+		}
+		if(state.curField == 1){
+			var btnBack = msg.buttonPlaces.find(x=>x.reference == "btn_back");
+			btnBack.buttons[0].hide();
+		}
+		if(state.curField > state.maxField){
+			var btnSkip = msg.buttonPlaces.find(x=>x.reference == "btn_skip");
+			btnSkip.buttons[0].hide();
 		}
 		
 		// show a new field
-		
-		await screen.postMessage(ctx, `FIELD${pos}`, userId);
+		msg.createButtonsTable();
+		await screen.postMessage(ctx, `FIELD${ state.curField }`, userId);
 
 		state.expected = "answer";
 
@@ -441,6 +524,89 @@ async stateCreateAnswer(state){
 		state.fieldObject.position = cfield.position;
 
 		s.watchMessage();
+		return true;
+	}
+
+	/**
+	 * next field with options
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
+	async step_show_field_options(s, ctx, state){
+		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
+		var cfield = null;
+		if(survey!=null){
+			cfield = survey.surveyFields.find(f=>f.position == state.nextField);
+			state.currentField = cfield;
+			if(cfield == null){
+				throw new Error("Field unknown");	
+			}
+		}else{
+			throw new Error("Survey not found");
+		}
+
+		state.prevField = state.curField;
+		state.curField = state.nextField;
+		state.nextField = state.curField + 1;
+		
+		const prefix = this.currentAlias + "_0201";
+		const lang = state.lang;
+		
+		// show the prompt related to one field in a survey
+		var msgDef =
+`# SURVEYFIELD
+## FIELD${ state.curField }
+{{ FTEXT | Field prompt | Default text }} {{ ANSWER | user's answer | }}
+===
+{{ ? | | btn_options }}
+{{ ${ prefix + "back" } | ⬅️ | btn_back }}{{ ${ prefix + "skip" } | ⏩ | btn_skip }}{{ ${ prefix + "quit" } | ⏏️ | btn_quit }}`;
+		
+		const userId = ctx.from.id;
+		
+		const screen = s.uiInside("SURVEYFIELD");
+		const msg = s.uiReg3(msgDef, false);
+		msg.setPlaceholder("FTEXT", cfield.fieldDescription[lang]);
+
+		//
+		var btns = [];
+		var options = cfield.fieldOptions;
+		for (let index = 0; index < options.length; index++) {
+			const element = options[index];
+			btns.push({
+				code:this.currentAlias + "_0201_" + element.code,
+				text:element.text[state.lang]
+			});
+		}
+		msg.setBtnPlace("btn_options", btns);
+
+		// if we have previous then hide its buttons
+		if(state.prevField > 0){
+			const prev = screen.getMessage(`FIELD${ state.prevField }`);
+			//prev.setPlaceholder("ANSWER", ">>>>>");
+			prev.hideAllButtons();
+			await screen.updateMessage(ctx, `FIELD${ state.prevField }`);
+		}
+		if(state.curField == 1){
+			var btnBack = msg.buttonPlaces.find(x=>x.reference == "btn_back");
+			btnBack.buttons[0].hide();
+		}
+		if(state.curField > state.maxField){
+			var btnSkip = msg.buttonPlaces.find(x=>x.reference == "btn_skip");
+			btnSkip.buttons[0].hide();
+		}
+		
+		// show a new field
+		msg.createButtonsTable();
+		await screen.postMessage(ctx, `FIELD${ state.curField }`, userId);
+
+		state.expected = "choice";
+
+		state.fieldObject.createdTime = new Date();
+		state.fieldObject.fieldCode = cfield.fieldCode;
+		state.fieldObject.position = cfield.position;
+
+		s.unwatchMessage();
 		return true;
 	}
 
@@ -458,8 +624,6 @@ async stateCreateAnswer(state){
 		state.fieldObject.fieldText = txt;
 
 		await this.stateWriteAnswer(state);
-		
-		state.nextField += 1;
 
 		if(survey!=null){
 			
@@ -469,7 +633,7 @@ async stateCreateAnswer(state){
 
 		// do we have the next field?
 		// or maybe not
-		if(state.maxField >= state.nextField){
+		if(state.maxField > state.curField ){
 			return this.step_show_field(s, ctx, state);
 		}else{
 			// finish
@@ -478,38 +642,72 @@ async stateCreateAnswer(state){
 	}
 
 	/**
-	 * Handle game2 command
+	 * Receive the answer
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
+	async step_get_answer_option(s, ctx, state){
+		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
+		var cfield = state.currentField;
+		var prefix = this.currentAlias + "_0201_";
+
+		var txt = ctx.callbackQuery.data;
+		txt = txt.substr(prefix.length);
+		var optname = cfield.fieldOptions.find(x=>x.code == txt).text[state.lang];
+		state.fieldObject.fieldText = optname;
+		state.fieldObject.fieldOption = txt;
+
+		await ctx.reply(this.texts["0301_SRV_ANS"][state.lang] + ":\n" + optname);
+
+		await this.stateWriteAnswer(state);
+
+		if(survey!=null){
+			
+		}else{
+			throw new Error("Survey not found");
+		}
+
+		// do we have the next field?
+		// or maybe not
+		if(state.maxField > state.curField ){
+			return this.step_show_field(s, ctx, state);
+		}else{
+			// finish
+			return this.step_finish(s, ctx, state);
+		}
+	}
+
+	/**
+	 * Go back
 	 * @param {SessionObject} s 
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
 	async step_go_back(s, ctx, state){
-		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
-		var cfield = null;
-		if(survey!=null){
-			cfield = survey.surveyFields.find(f=>f.position == state.nextField);
-			if(cfield == null){
-				throw new Error("Field unknown");	
-			}
-		}else{
-			throw new Error("Survey not found");
-		}
+		
+		state.nextField = state.curField - 1;
 
-		var pos = state.nextField;
-		// show the prompt related to one field in a survey
-		var msgDef =
-`# SURVEYFIELD
-## FIELD${pos}
-${this.texts["0102_SRV_CHOOSE"]}
-{{ FTEXT | Field prompt | Default text }}
-===
-{{ st!field!${state.nextField - 1} | Back | btnBack }}`;
+		return this.step_show_field(s, ctx, state);
 		
-		const prefix = this.currentAlias + "_0102_";
-		//const lang = ctx.callbackQuery.data.substring(prefix.length);
-		const userId = ctx.from.id;
-		
-		//state.lang = lang;
+	}
+
+	/**
+	 * Skip
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
+	async step_skip(s, ctx, state){
+
+		state.fieldObject.fieldText = "--SKIPPED--";
+		await this.stateWriteAnswer(state);
+
+		if(state.curField == state.maxField){
+			return await this.step_finish(s, ctx, state);
+		}else{
+			return await this.step_show_field(s, ctx, state);
+		}
 		
 	}
 
@@ -528,122 +726,68 @@ ${this.texts["0102_SRV_CHOOSE"]}
 Thank you!
 `;
 
-	const screen = s.uiInside("SURVEY");
-	const msg = s.uiReg3(msgDef, false);
-	await screen.postMessage(ctx, "FINISH", ctx.from.id);
-	
-	return false;
+		// overwrite previous answers
+		if(state.rewriteAnswers == true){
+			// clear old answers
+			await MSurveyFieldsAnswers.deleteMany({
+				$and:[
+					{ uid: state.uid },
+					{ surveyCode: state.surveyCode },
+					{ _id: {$ne:state.id} },
+					{ refCode: state.refCode }
+				]
+			});
+		}
+
+		var screen = s.uiInside("SURVEYFIELD");
+
+		const prev = screen.getMessage(`FIELD${ state.curField }`);
+		prev.hideAllButtons();
+		await screen.updateMessage(ctx, `FIELD${ state.curField }`);
+
+		screen = s.uiInside("SURVEY");
+
+		const msg = s.uiReg3(msgDef, false);
+		await screen.postMessage(ctx, "FINISH", ctx.from.id);
+		
+		return false;
 		
 	}
 
 	/**
-	 * Handle game2 command
+	 * Cancel survey
 	 * @param {SessionObject} s 
 	 * @param {Context} ctx 
-	 * @param {asoCourses} state 
+	 * @param {asoSurveyFields} state 
 	 */
-	async step02(s, ctx, state) {
-		const screen = s.uiInside("ADD_COURSE");
-		const msg = screen.getMessage("RESULT");
-		msg.hideAllButtons();
-		await screen.updateMessage(ctx, "RESULT");
-		return false;
-	}
-	/**
-	 * Handle game2 command
-	 * @param {SessionObject} s 
-	 * @param {Context} ctx 
-	 * @param {asoCourses} state 
-	 */
-	async step01_cancel(s, ctx, state) {
-		const screen = s.uiInside("ADD_COURSE");
-		const msg = screen.getMessage("START");
-		// msg.hideAllButtons();
-		screen.deleteMessage(ctx, "START");
-		await screen.updateMessage(ctx, "START");
-		return false;
-	}
+	async step_quit(s, ctx, state){
+		if(state.lang == "" || state.lang == null){
+			state.lang = "en";
+		}
 
-	/**
-	 * Handle game2 command
-	 * @param {SessionObject} s 
-	 * @param {Context} ctx 
-	 * @param {asoCourses} state 
-	 */
-	async step03_01(s, ctx, state) {
 		var msgDef =
-			`# COMMUNICATION
-## REGISTER_COURSE
-Добрый день, {{ USERNAME |Имя | }}!
-Пожалуйста, выберите курс из списка:
-{{ ? | Список курсов | }}
-===
-{{ ? | | BTNS_LIST }}`;
-		var c = await MCourse.find({}).exec();
-		var d = c[0].courseName;
-		let buttons = c
-			.map((t) => { return { text: t.courseName, code: "cm!0301!" + t.courseNumber }; });
-		const msg = s.uiReg3(msgDef, true);
-		msg.setPlaceholder("USERNAME", ctx.from.first_name);
-		msg.setBtnPlace("BTNS_LIST", buttons);
-		const p = msg.buttonPlaces.find(b => b.reference == 'BTNS_LIST');
-		p.maxInLine = 1;
-		msg.createButtonsTable();
-		const screen = s.uiInside("COMMUNICATION");
-		const userId = ctx.from.id;
+`# SURVEY
+## FINISH
+${ this.texts["0103_SRV_QUIT"][state.lang] }
+`;
 
-		await screen.postMessage(ctx, "REGISTER_COURSE", userId);
-		s.watchCallback();
-		return true;
-	}
+		var screen = s.uiInside("SURVEYFIELD");
+		const prev = screen.getMessage(`FIELD${ state.curField }`);
+		if(prev != null){
+			prev.hideAllButtons();
+			await screen.updateMessage(ctx, `FIELD${ state.curField }`);
 
-	/**
-		 * Handle game2 command
-		 * @param {SessionObject} s 
-		 * @param {Context} ctx 
-		 * @param {asoCourses} state 
-		 */
+			// delete data
+			await MSurveyFieldsAnswers.deleteOne({
+				_id:state.id
+			});
+		}
 
-	async step03_02(s, ctx, state) {
-		let courseCode
-			= ctx.callbackQuery.data
-		let courseQuerry = String(courseCode).split('!')
-		let courseId = Number(courseQuerry[courseQuerry.length - 1])
-		state.course = await MCourse.findOne({ courseNumber: courseId }).exec()
-		var msgDef =
-			`# COMMUNICATION
-## REGISTER_NAME
-Теперь укажите ваше ФИО, если вы неправильно ввели курс введите команду /re `;
-		const msg = s.uiReg3(msgDef, true);
-		const screen = s.uiInside("COMMUNICATION");
-		const userId = ctx.from.id;
-		await screen.postMessage(ctx, "REGISTER_NAME", userId);
-		state.state = "03_03";
-		s.watchMessage();
-		return true;
-	}
-	/**
-		 * Handle game2 command
-		 * @param {SessionObject} s 
-		 * @param {Context} ctx 
-		 * @param {asoCourses} state 
-		 */
-	async step03_03(s, ctx, state) {
-		var msgDef =
-			`# COMMUNICATION
-## REGISTER_FINISH
-Спасибо! Теперь вы будете получать информацию о ваших оценках в этот чат, если вы неправильно ввели ФИО или курс введите команду /re`;
-		const screen = s.uiInside("COMMUNICATION");		
-		const msg = s.uiReg3(msgDef, true);
-		
-		const userId = ctx.from.id;
-		await screen.postMessage(ctx, "REGISTER_FINISH", userId);
-		s.watchMessage();
-		let name = ctx.message.text
-		
-		await MStudent.create({ studentName: name, studentNumber: await MStudent.countDocuments() + 1, courseName: state.course.courseName })
-	
-		return false;
+		screen = s.uiInside("SURVEY");
+		var msg = s.uiReg3(msgDef, false);
+		await screen.postMessage(ctx, "FINISH", s.userId);
+
+		return false;		
 	}
 
 
