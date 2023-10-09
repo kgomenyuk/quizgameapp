@@ -1,3 +1,4 @@
+const { default: mongoose } = require('mongoose');
 const m = require('mongoose');
 
 const CAppSettings = new m.Schema(
@@ -6,11 +7,12 @@ const CAppSettings = new m.Schema(
         settings:[
             {
                 propertyName: String,
-                propertyValue: String
+                propertyValue: String,
+                propertyArray: mongoose.Schema.Types.Array
             }
         ],
         changedOn: Date
-    }
+    }, {}
 );
 
 const MAppSettings = m.model("app_settings", CAppSettings);

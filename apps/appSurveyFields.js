@@ -71,10 +71,23 @@ class AppSurveyFields extends AppBase {
 	}
 
     _loadApplicationSettings = async (a) =>{
+		
+		var settings = await super._loadApplicationSettings(a);
+		
+		// transfer settings
+		this.availableSurveyCodes=settings.availableSurveyCodes;
+		this.filterGroupId=settings.filterGroupId;
+		this.startCommand = settings.startCommand;
+		if(this.startCommand==null){
+			this.startCommand = "ask";
+		}
+		this.refCode = settings.refCode;
+
 		if(this.availableSurveyCodes.length == 0) {
 			throw new Error("Survey codes not set");
 		}
 
+		
 		var forms = await MSurveyFields.find({
 			$and:[
 				{
