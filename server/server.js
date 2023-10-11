@@ -245,7 +245,8 @@ async function launch(options) {
 		await apps.setAppMapping(appsToLoad.mapping);
 
 		await apps.start({
-			apikey: options.apiKey
+			apikey: options.apiKey,
+      botCode: options.botCode
 		});
 
     require("./qview_server")(server, apps);
@@ -257,7 +258,9 @@ async function launch(options) {
 
   console.log("Bot is running and listening");
 
-	await currentTg.launch();
+	await currentTg.launch({
+    allowedUpdates:["callback_query", "message", "chat_member"]
+  });
 }
 
 /**
@@ -286,7 +289,8 @@ app.startApplication = async () => {
 			ftpUser: settings.ftpUser,
 			ftpPwd: settings.ftpPwd,
 			ftpPort: settings.ftpPort,
-			dName: settings.dName
+			dName: settings.dName,
+      botCode: botCode
 		});
 
 	} catch (e) {

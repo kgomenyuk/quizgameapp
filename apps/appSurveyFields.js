@@ -396,11 +396,11 @@ async stateCreateAnswer(state){
 	state.currentSurvey.uid = state.uid;
 	state.currentSurvey.surveyCode = state.surveyCode;
 	state.currentSurvey._id = new ObjectId();
+	state.currentSurvey.lang = state.lang;
 	//state.currentSurvey.rewriteAnswers = state.rewriteAnswers;
 	state.currentSurvey.refCode = state.refCode;
 	
 	var r = await MSurveyFieldsAnswers.create(state.currentSurvey);
-
 	
 	state.id = state.currentSurvey._id;
 }

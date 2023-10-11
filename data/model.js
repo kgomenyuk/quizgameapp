@@ -18,7 +18,14 @@ const CBot = new m.Schema({
     ftpDir: String,
     ftpPwd: String,
     ftpUser: String,
-    ftpPort: String
+    ftpPort: String,
+    groups:[{
+        id: String,
+        userAdded: String,
+        userAddedU:String,
+        groupTitle: String,
+        timestamp: Date
+    }]
 });
 
 /**

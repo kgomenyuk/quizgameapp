@@ -33,6 +33,7 @@ const CSurveyAnswers = new m.Schema(
         refCode: String,
         createdTime: Date,
         uid: String,
+        lang: String,
         surveyFields: [
             {
                 fieldCode: String, 
