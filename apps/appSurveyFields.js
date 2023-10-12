@@ -8,6 +8,7 @@ const { UIMessage } = require("../lib/UIScreen");
 const { MSurveyFields, MSurveyFieldsAnswers } = require("../data/model_appSurveyFields");
 const { asoSurveyFields } = require("./asoSurveyFields");
 const { ObjectId } = require("mongodb");
+const { MBot, MAppSettings } = require("../data/model");
 
 
 
@@ -60,6 +61,7 @@ class AppSurveyFields extends AppBase {
 
 	
     startCommand = "survey"; // command that triggers the survey
+	adminStartCommand = "srvadmin";
 
 
 	/**
@@ -78,6 +80,10 @@ class AppSurveyFields extends AppBase {
 		this.availableSurveyCodes=settings.availableSurveyCodes;
 		this.filterGroupId=settings.filterGroupId;
 		this.startCommand = settings.startCommand;
+		this.adminStartCommand = settings.adminStartCommand;
+		if(this.adminStartCommand == null){
+			this.adminStartCommand = "srvadm";
+		}
 		if(this.startCommand==null){
 			this.startCommand = "ask";
 		}
@@ -198,7 +204,30 @@ class AppSurveyFields extends AppBase {
         }
 
 
+		// security management
+		var trCmdaddGr = new TGCommandEventTrigger("trCmdaddGr", this.adminStartCommand, null);
+		trCmdaddGr.handlerFunction = this.step_adm_01;
+		trgs.push(trCmdaddGr);
+
+		var trCbAdmQuit = new TGCallbackEventTrigger("trCbAdmQuit", null, this.currentAlias + "_adm01close");
+		trCbAdmQuit.handlerFunction = this.step_adm_quit;
+		trgs.push(trCbAdmQuit);
+
+		var trCbAdmGr = new TGCallbackEventTrigger("trCbAdmGr", null, this.currentAlias + "_adm02_");
+		trCbAdmGr.handlerFunction = this.step_adm_02;
+		trgs.push(trCbAdmGr);
 		
+		/*var trCbLang = new TGCallbackEventTrigger("trCbLang", null, this.currentAlias + "_0102_" );
+		trCbLang.handlerFunction = this.step01_02;
+		trgs.push(trCbLang);
+
+
+
+		var trCbSurvey = new TGCallbackEventTrigger("trCbSurvey", null, this.currentAlias + "_0103_" );
+		trCbSurvey.handlerFunction = this.step01_03;
+		trgs.push(trCbSurvey);
+		*/
+
 		return trgs;
 	}
 
@@ -261,6 +290,119 @@ class AppSurveyFields extends AppBase {
 
 	// ALL HANDLERS 
 
+
+
+
+	/**
+	 * Saving 
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
+	async step_adm_01(s, ctx, state) {
+
+		// activation command
+		var code = this.getAppCore().botInfo.apiKey;
+		code = code.substring(code.length - 4);
+
+		const ok = ctx.message.text.indexOf(" " + code) > 0;
+
+		if(ok == false){
+			return false;
+		}
+
+		await ctx.deleteMessage(ctx.message.message_id);
+
+		const msgDef =
+`# FIELDADMIN
+## START
+Please, choose a group from the list: {{ANSWER | | }}
+===
+{{ ? | 2 | btn_forms }}
+{{ ${ this.currentAlias }_adm01close | Cancel | btn_close }}`;
+
+		const screen = s.uiInside("FIELDADMIN");
+		const msg = s.uiReg3(msgDef, false);
+
+		var groups = await MBot.findOne({ 
+			botCode: this.getAppCore().botInfo.botCode 
+		}, { 
+			groups: 1
+		 }).exec();
+
+		 if(groups == null){
+			await ctx.reply("The bot was not added to any group");
+			return false;
+		 }
+
+		 groups = groups.toObject();
+		 if(groups.groups.length == 0){
+			await ctx.reply("The bot was not added to any group");
+			return false;
+		 }
+
+		 var groupIds = groups.groups.map(x=>x.id);
+		 state.groupIds = groupIds;
+
+
+		 var btns = groups.groups.map(g=>{
+			return {
+				code: this.currentAlias + "_adm02_" + g.id,
+				text: g.groupTitle
+			};
+		 });
+
+		// var btnsGroups = groups.
+		msg.setBtnPlace("btn_forms", btns);
+		msg.createButtonsTable();
+		const userId = ctx.from.id;
+
+		await screen.postMessage(ctx, "START", userId);
+		s.watchCallback();
+		
+		return true
+	}
+
+	/**
+ * Choose group from the list
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoSurveyFields} state 
+ */
+	async step_adm_02(s, ctx, state) {
+		const prefix = this.currentAlias+"_adm02_";
+		const gr = ctx.callbackQuery.data.substring(prefix.length);
+		const userId = ctx.from.id;
+		
+		if(gr != '' && gr != null){
+			await MAppSettings.updateOne({
+				appAlias: this.currentAlias
+			}, {
+				$pull:{
+					settings: { propertyName: 'filterGroupId' }
+				}
+			}).exec();
+
+			await MAppSettings.updateOne({
+				appAlias: this.currentAlias
+			}, {
+				$push:{
+					settings: { 
+						propertyName: 'filterGroupId', 
+						propertyValue: gr 
+					}
+				}
+			}).exec();
+
+			this.filterGroupId = gr;
+		}
+
+		await ctx.reply("The group was set");
+
+		return false;
+	}
+	
+
 	/**
 	 * Choose language
 	 * @param {SessionObject} s 
@@ -269,7 +411,21 @@ class AppSurveyFields extends AppBase {
 	 */
 	async step01_01(s, ctx, state) {
 
-
+		var groupId = this.filterGroupId;
+		if(groupId != ""){
+			try{
+				var c = await ctx.telegram.getChatMember(groupId, s.userId);
+				if(c.status == 'creator' || c.status == 'member'){
+					// ok
+				}else{
+					await ctx.reply("Sorry, the bot is not available now");
+					return false;
+				}
+			} catch (exe){
+				await ctx.reply("Sorry, the bot is not available now");
+				return false;
+			}
+		}
 		
 		const msgDef =
 `# SURVEY

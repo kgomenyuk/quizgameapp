@@ -253,6 +253,8 @@ async function launch(options) {
 	}
 
   const botInfo = await currentTg.telegram.getMe();
+  botInfo.apiKey = options.apiKey;
+  botInfo.botCode = options.botCode;
   console.log(botInfo);
   apps.setBotInfo(botInfo);
 

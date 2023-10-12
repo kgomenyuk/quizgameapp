@@ -40,6 +40,7 @@ class asoSurveyFields {
 		createdTime: null
     };
 
+    groupIds=[];
 
    }
    
