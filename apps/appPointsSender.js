@@ -1095,7 +1095,7 @@ step03_01 = async (s, ctx, state) => {
     if(groupId != ""){
         try{
             var c = await ctx.telegram.getChatMember(Number(groupId), s.userId);
-            if(c.status == 'creator' || c.status == 'member'){
+            if(c.status == 'creator' || c.status == 'member' || c.status == "administrator"){
                 // ok
             }else{
                 await ctx.reply("Sorry, the bot is not available now");
@@ -1170,11 +1170,29 @@ step04_01 = async (s, ctx, state)=>{
     ]
         ).exec();
 
-    var txt = res
-        .map(x=>x.uid+"|"+x.lname+" "+x.fname+"|"+x.email)
-        .join("\n");
+    res = res
+        .map(x=>x.toObject());
 
-    await ctx.reply(txt);
+    res.forEach((x, i)=>{
+        x.group = Math.floor( i / 25 );
+    });
+
+    res = res
+        .reduce((p, x)=>{
+            if(x.group >= p.length){
+                p.push([]);
+            }
+            p[x.group].push(x);
+            return p;
+        }, []);
+
+    for (const g of res) {
+        var txt = g
+            .map(x=>x.uid+"|"+x.lname+" "+x.fname+"|"+x.email)
+            .join("\n");
+
+        await ctx.reply(txt);
+    }
 
     return false;
 

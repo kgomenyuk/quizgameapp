@@ -415,7 +415,7 @@ Please, choose a group from the list: {{ANSWER | | }}
 		if(groupId != ""){
 			try{
 				var c = await ctx.telegram.getChatMember(Number(groupId), s.userId);
-				if(c.status == 'creator' || c.status == 'member'){
+				if(c.status == 'creator' || c.status == 'member' || c.status == "administrator"){
 					// ok
 				}else{
 					await ctx.reply("Sorry, the bot is not available now");
