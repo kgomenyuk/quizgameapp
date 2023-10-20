@@ -46,12 +46,132 @@ const CSurveyAnswers = new m.Schema(
     }
 );
 
+class MSurveyFieldsQuery {
+
+    /**
+     * 
+     * @param { String } refCode 
+     * @returns {[any]}
+     */
+    static async getAllResults(surveyCode, refCode) {
+        var query = [
+            {
+              $match: {
+                refCode: refCode,
+                surveyCode: surveyCode,
+              },
+            },
+            {
+              $project:
+                /**
+                 * specifications: The fields to
+                 *   include or exclude.
+                 */
+                {
+                  createdTime: 1,
+                  uid: 1,
+                  lang: 1,
+                  surveyFields: 1,
+                  _id: 0,
+                },
+            },
+            {
+              $addFields:
+                /**
+                 * query: The query in MQL.
+                 */
+                {
+                  cols: {
+                    $map: {
+                      input: "$surveyFields",
+                      as: "x",
+                      in: [
+                        "$$x.fieldCode",
+                        {
+                          $cond: [
+                            {
+                              $eq: ["$$x.fieldOption", ""],
+                            },
+                            "$$x.fieldText",
+                            "$$x.fieldOption",
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                },
+            },
+            {
+              $project:
+                /**
+                 * specifications: The fields to
+                 *   include or exclude.
+                 */
+                {
+                  surveyFields: 0,
+                },
+            },
+            {
+              $project:
+                /**
+                 * specifications: The fields to
+                 *   include or exclude.
+                 */
+                {
+                  uid: 1,
+                  createdTime: 1,
+                  lang: 1,
+                  cols: {
+                    $arrayToObject: "$cols",
+                  },
+                },
+            },
+            {
+              $addFields:
+                /**
+                 * newField: The new field name.
+                 * expression: The new field expression.
+                 */
+                {
+                  "cols.uid": "$uid",
+                  "cols.createdTime": "$createdTime",
+                  "cols.lang": "$lang",
+                },
+            },
+            {
+              $replaceRoot:
+                /**
+                 * replacementDocument: A document or string.
+                 */
+                {
+                  newRoot: "$cols",
+                },
+            },
+            {
+              $sort:
+                /**
+                 * Provide any number of field/order pairs.
+                 */
+                {
+                  sname: 1,
+                  fname: 1,
+                },
+            },
+          ];
+
+        var result = 
+            await MSurveyFieldsAnswers.aggregate(query).exec();
+        
+        return result;
+    }
+}
+
 /*        MODELS        */
 
 // survey
 const MSurveyFields = m.model("survey_fields", CSurveyFields);
 const MSurveyFieldsAnswers = m.model("survey_fields_answers", CSurveyAnswers);
 module.exports = {
-    MSurveyFields, MSurveyFieldsAnswers
+    MSurveyFields, MSurveyFieldsAnswers, MSurveyFieldsQuery
 }
    

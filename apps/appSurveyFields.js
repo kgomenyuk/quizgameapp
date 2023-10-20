@@ -299,7 +299,7 @@ class AppSurveyFields extends AppBase {
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_adm_01(s, ctx, state) {
+	step_adm_01 = async (s, ctx, state) => {
 
 		// activation command
 		var code = this.getAppCore().botInfo.apiKey;
@@ -369,8 +369,8 @@ Please, choose a group from the list: {{ANSWER | | }}
  * @param {Context} ctx 
  * @param {asoSurveyFields} state 
  */
-	async step_adm_02(s, ctx, state) {
-		const prefix = this.currentAlias+"_adm02_";
+	 step_adm_02 = async (s, ctx, state) => {
+		const prefix = this.currentAlias + "_adm02_";
 		const gr = ctx.callbackQuery.data.substring(prefix.length);
 		const userId = ctx.from.id;
 		
@@ -409,12 +409,12 @@ Please, choose a group from the list: {{ANSWER | | }}
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step01_01(s, ctx, state) {
+	step01_01 = async (s, ctx, state) => {
 
 		var groupId = this.filterGroupId;
 		if(groupId != ""){
 			try{
-				var c = await ctx.telegram.getChatMember(groupId, s.userId);
+				var c = await ctx.telegram.getChatMember(Number(groupId), s.userId);
 				if(c.status == 'creator' || c.status == 'member'){
 					// ok
 				}else{
@@ -460,7 +460,7 @@ Choose your language {{ANSWER | | }}
  * @param {Context} ctx 
  * @param {asoSurveyFields} state 
  */
-	async step01_02(s, ctx, state) {
+	step01_02 = async (s, ctx, state) => {
 		const prefix = this.currentAlias+"_0102_";
 		const lang = ctx.callbackQuery.data.substring(prefix.length);
 		const userId = ctx.from.id;
@@ -507,7 +507,7 @@ ${this.texts["0102_SRV_CHOOSE"][lang]} {{ ANSWER | | }}
  * @param {Context} ctx 
  * @param {asoSurveyFields} state 
  */
-	async step01_03(s, ctx, state) {
+	 step01_03 = async (s, ctx, state) => {
 		const prefix = this.currentAlias + "_0103_";
 		const srv = ctx.callbackQuery.data.substring(prefix.length);
 		const userId = ctx.from.id;
@@ -604,7 +604,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_show_field(s, ctx, state){
+	step_show_field = (s, ctx, state) => {
 		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
 		var cfield = null;
 		if(survey!=null){
@@ -633,7 +633,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_show_field_message(s, ctx, state){
+	step_show_field_message = async (s, ctx, state) =>{
 		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
 		var cfield = null;
 		if(survey!=null){
@@ -702,7 +702,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_show_field_options(s, ctx, state){
+	step_show_field_options = async (s, ctx, state) => {
 		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
 		var cfield = null;
 		if(survey!=null){
@@ -785,7 +785,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_get_answer(s, ctx, state){
+	 step_get_answer = async (s, ctx, state) => {
 		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
 		var cfield = state.currentField;
 
@@ -816,7 +816,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_get_answer_option(s, ctx, state){
+	step_get_answer_option = async (s, ctx, state) => {
 		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
 		var cfield = state.currentField;
 		var prefix = this.currentAlias + "_0201_";
@@ -853,7 +853,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_go_back(s, ctx, state){
+	step_go_back = async (s, ctx, state) =>{
 		
 		state.nextField = state.curField - 1;
 
@@ -867,7 +867,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_skip(s, ctx, state){
+	step_skip = async (s, ctx, state) => {
 
 		state.fieldObject.fieldText = "--SKIPPED--";
 		await this.stateWriteAnswer(state);
@@ -886,7 +886,7 @@ async stateCreateAnswer(state){
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_finish(s, ctx, state){
+	step_finish = async (s, ctx, state)=>{
 		var survey = this.surveys.find(x=>x.surveyCode == state.surveyCode);
 		
 		var msgDef =
@@ -929,7 +929,7 @@ Thank you!
 	 * @param {Context} ctx 
 	 * @param {asoSurveyFields} state 
 	 */
-	async step_quit(s, ctx, state){
+	 step_quit=async(s, ctx, state)=>{
 		if(state.lang == "" || state.lang == null){
 			state.lang = "en";
 		}
