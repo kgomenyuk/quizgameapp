@@ -1,0 +1,19 @@
+doctype
+html(lang='en')
+    head
+        meta(charset='utf-8')
+        script(src="/socket.io/socket.io.min.js") 
+        title
+    body
+        script
+            |var instance = '#{ instance }';
+            include ./game_view_go.js
+        h1=title
+        #round
+            #round_header
+            #round_details
+            #round_q_number
+        #question Question
+        #options Options
+        #spam
+            #spam_chat

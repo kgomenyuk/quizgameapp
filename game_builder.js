@@ -1,5 +1,5 @@
 const { mongoose } = require("mongoose");
-const { MQuizPlan } = require("./data/model");
+const { MQuizPlan, MGameInstance } = require("./data/model");
 const { Game } = require("./game");
 const { Quiz, QuizOption } = require("./quiz");
 const { QuizGame } = require("./quiz_game");
@@ -16,9 +16,24 @@ class QuizGameBuilder {
      */
     dictQuizzes;
 
+    quizPlanId = "";
+
+    uniqueId="";
+
 
     constructor(){
         
+    }
+
+    restoreInstance = async (instanceId, game) => {
+      // read from DB
+      var instance = await MGameInstance.findById(instanceId).exec();
+      if(instance!=null){
+        this.quizPlanId = instance.planId;
+        this.uniqueId = instanceId;
+      }
+      await this.setQuizPlan(this.quizPlanId);
+
     }
 
     /**
@@ -26,6 +41,10 @@ class QuizGameBuilder {
      * @param {String} quizPlanId 
      */
     setQuizPlan = async (quizPlanId) => {
+      this.planId = quizPlanId;
+      const qPlanHeader = await MQuizPlan.findOne({ planId: quizPlanId }, {title: 1 }).exec();
+      this.title = qPlanHeader.title;
+
       // retrieve the plan from the database
         var quizPlan = await MQuizPlan.aggregate(
             [
@@ -89,10 +108,19 @@ class QuizGameBuilder {
         }
     }
     /**
+     * @type {Game}
      * @returns { Game }
      */
-    build = async () => {
-        var g = new QuizGame();
+    build = async (game) => {
+        var g = game;
+        if(game == null){
+           g = new QuizGame();
+        }
+
+        g.title = this.title;
+        if(game.uniqueId==""){
+          game.uniqueId=this.uniqueId;
+        }
 
         // add rounds
         this.sections.forEach(r=>{

@@ -1,0 +1,18 @@
+doctype
+html(lang='en')
+    head
+        meta(charset='utf-8')
+        title Navigation
+    body
+        h1 List of all quiz plans
+        ul
+            each item in items
+                li
+                    h3=item.title
+                    div
+                        div="Bot-friendly name: " + item.planId
+                        //a(href="http://t.me/" + botInfo.userName + "?start=" + item.planId)="Send to the bot"
+                        a(href="tg://resolve?domain=" + botInfo.userName + "&start=C-gm2-gm2plid-" + item.planId)="Send to the bot"
+                    ol
+                        each s in item.summary
+                            li= s.sectionId + " Q: " + s.quizCount

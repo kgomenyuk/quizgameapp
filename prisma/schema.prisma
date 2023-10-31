@@ -1,0 +1,79 @@
+datasource db {
+  url      = env("DATABASE_URL_WITH_SCHEMA")
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+} 
+
+// notification header
+model notif_hdr {
+  notif_id           String       @id @db.VarChar(36) // notification header key
+  app_id             String       @db.VarChar(10) // application that should handle the notification
+  user_id            String       @db.VarChar(36) // user that will receive the notification
+  user_tg_id         BigInt? // TG user ID
+  time_created       DateTime     @db.Timestamptz(3) @default(now())
+  time_changed       DateTime?    @db.Timestamptz(3) @updatedAt
+  notif_state_id     String       @db.Char(1) // state
+  is_active          Boolean      @default(false) // is it active or not
+  notif_class_id     String       @db.VarChar(5) // notification category
+  notif_type_id      String       @db.VarChar(10) // app-specific notification type
+  is_datetime_plan   Boolean      @default(false) // exact time (true) or time span in seconds (false)
+  plan_time_span_utc String       @db.Char(14) // time interval between notifications in the format YYYYMMDDHHmmss
+  time_last_planned  DateTime?    @db.Timestamptz(3)// last sent
+  par_str            String?      @db.VarChar(30) // extra parameter to be sent to the handler
+  notif_plan         notif_plan[]
+}
+
+// notification state dictionary
+model notif_state {
+  notif_state_id    String             @id @db.Char(1)
+  notif_state_name  String             @db.VarChar(20)
+  notif_state_texts notif_state_text[]
+}
+
+model notif_state_text {
+  notif_state_id            String       @db.Char(1)
+  lang                      String       @db.Char(2)
+  notif_state_name          String       @db.VarChar(20)
+  notif_state               notif_state? @relation(fields: [notif_stateNotif_state_id], references: [notif_state_id])
+  notif_stateNotif_state_id String?      @db.Char(1)
+
+  @@id([notif_state_id, lang])
+}
+
+// notification class dictionary
+model notif_class {
+  notif_class_id String  @id @db.Char(5) 
+  description    String  @db.VarChar(100) 
+  cls_name       String  @db.VarChar(30) // js class name
+  cls_require    String  @db.VarChar(100) // js file address
+  is_active      Boolean @default(true) // should this class be used
+}
+
+// the shedule for notifications
+model notif_plan {
+  notif_plan_id       String    @id @db.VarChar(36)
+  notif               notif_hdr @relation(fields: [notif_id], references: [notif_id]) 
+  notif_id            String    @db.VarChar(36)
+  time_planned        DateTime  @db.Timestamptz(3)// scheduled time
+  time_sent           DateTime? @db.Timestamptz(3)// actual execution time
+  notif_plan_state_id String    @db.Char(1) // state
+  is_sent             Boolean   @default(false)
+  is_selected         Boolean   @default(false)
+  time_created        DateTime  @db.Timestamptz(3) @default(now())
+}
+
+model notif_plan_state {
+  notif_plan_state_id String @id @db.Char(1)
+  nps_name            String @db.VarChar(20)
+}
+
+model notif_plan_state_text {
+  notif_plan_state_id String @db.Char(1)
+  lang                String @db.Char(2)
+  nps_name            String @db.VarChar(20)
+
+  @@id([notif_plan_state_id, lang])
+}

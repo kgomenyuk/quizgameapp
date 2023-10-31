@@ -343,6 +343,10 @@ Which function of SQL was used to form the countries column?`,
             upsert: true,
             update: {
             planId: "SQL_L7_Quiz", 
+            title: "Quiz on SQL basics №1",
+            isSample: true,
+            ownerId: null,
+            addedOn: new Date(),
                 quizSections:[
                     {
                         position: 1,

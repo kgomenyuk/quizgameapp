@@ -17,7 +17,7 @@ class Game{
 
     // paticipants
     /**
-     * @type {[{id:number, name:string, players:[number]}]}
+     * @type {[{id:number, name:string, players:[{id:number, name: string}]}]}
      */
     teams=[];
 
@@ -123,7 +123,7 @@ class Game{
     //teams
     /**
      * 
-     * @returns { [{id:number, playersCount:number, name:string, players:[number]}] }
+     * @returns { [{ id: number, playersCount: number, name: string, players: [{ id: number, name: string }] }] }
      */
     getTeams(){
         return this.teams.map(x=>{return {
@@ -132,6 +132,21 @@ class Game{
             name:x.name,
             players: x.players
         };});
+    }
+
+    //find single team
+    /**
+     * 
+     * @returns { { id: number, playersCount: number, name: string, players: [{ id: number, name: string }] } }
+     */
+    getTeam(teamId){
+        var team = this.teams.find(x=>x.id==teamId);
+        return {
+            id:team.id,
+            playersCount: team.players.length,
+            name:team.name,
+            players: team.players
+        };
     }
 
     /**
@@ -153,21 +168,29 @@ class Game{
      * @param {*} code 
      * @param {*} teamNumber 
      * @param {number} id  User ID in the external system
+     * @param {string} playerName User name. Optional.
+     * @returns {String} Previous team. "" if there was no prev team
      */
-    addPlayer = (code, teamNumber, id) => {
-        if(code == this.gameId){
+    addPlayer = (code, teamNumber, id, playerName = "") => {
+        var prevteam = "";
+        //if(code == this.gameId){
             // check if user is already in another team.
-            var userTeam = this.teams.find(t=>t.players.indexOf(id)>-1);
+            //var userTeam = this.teams.find(t=>t.players.indexOf(id)>-1);
+            var userTeam = this.teams.find(t=>t.players.find(p=>p.id == id)!=null);
             if(userTeam!=null){
+                prevteam = userTeam.id;
                 // delete
-                userTeam.players.splice(userTeam.players.indexOf(id),1);
+                //userTeam.players.splice(userTeam.players.indexOf(id),1);
+                userTeam.players.splice(userTeam.players.findIndex(p=>p.id == id), 1);
             }else{
-                // no team
+                // player does not belong to any team
             }
-            this.teams.find(x=>x.id == teamNumber).players.push(id);
-        }else{
-            throw new Error("Wrong code");
-        }
+            //this.teams.find(x=>x.id == teamNumber).players.push(id);
+            this.teams.find(x=>x.id == teamNumber).players.push({ id: id, name: playerName });
+        //}else{
+        //    throw new Error("Wrong code");
+        //}
+        return prevteam+"";
     }
 
     getCode(){
@@ -203,7 +226,7 @@ class Game{
         }
     }
 
-    // go to next question
+    /** move to the next question */
     nextQuestion(){
         this.question++;
         this.questions.push([]);
@@ -250,8 +273,7 @@ class Game{
         this.finalScore.teamsScore = finalScore;
     }
 
-    // finish round and detect the winner
-    /**
+    /**finish round and detect the winner
      * 
      * @returns { [{teamNumber:number, points:number, isWinner: boolean, answered:boolean, questionsScore:[{ points:number, answered:boolean }]}] }
      */
@@ -426,5 +448,6 @@ class Game{
 }
 
 module.exports = {
-    Game
+    Game,
+    randomString
 };

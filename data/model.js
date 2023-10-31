@@ -1,51 +1,58 @@
+const { Timestamp } = require("mongodb");
 var m = require("mongoose");
 
-const CQuiz = new m.Schema(
-    {
-        quizId: String,
-        questionText: String,
-        quizType: String, // m, s
-        options: [{
-            optionId: Number,
-            text: String,
-            isCorrect: Boolean
-        }],
-        hasMedia: Boolean,
-        image: Buffer,
-        tags:[String]
-    }
-);
 
-const CQuizPlan = new m.Schema({
-    planId: String,
-    quizSections: [{
-        sectionId: String,
-        position: Number,
-        quizData:[{
-            quizId: String,
-            position: Number
-        }]
+const mAppQuizGame = require("./model_appQuizGame");
+const mAllAppSettings = require("./model_allAppSettings");
+const mAppCourses = require("./model_appCourses");
+/**
+ * registered TG bots
+ */
+const CBot = new m.Schema({
+    botCode:String,
+    apiKey:String,
+    name:String,
+    isOnline: Boolean,
+    isDevMode: Boolean,
+    ftpServer: String,
+    ftpDir: String,
+    ftpPwd: String,
+    ftpUser: String,
+    ftpPort: String,
+    groups:[{
+        id: String,
+        userAdded: String,
+        userAddedU:String,
+        groupTitle: String,
+        timestamp: Date
     }]
 });
 
-const CGameResult = new m.Schema({
-    gameCode: String,
-    rounds: Number,
-    roundStats: [{
-        round: Number,
-        points: Number,
-        quizWon: Number,
-        isWinner: Boolean
-    }]
+/**
+ * user profile data
+ */
+const CProfile = new m.Schema({
+    id: String, 
+    fName: String,
+    login: String,
+    fullName: String,
+    userRoles: [String],
+    sName: String,
+    lang: String,
+    timeZone: Number,
+    email: String
 });
 
-const MQuiz = m.model("quiz", CQuiz);
-const MGameResult = m.model("gameresult", CGameResult);
-const MQuizPlan = m.model("quizplan", CQuizPlan);
+const MBot = m.model("bot", CBot);
+
+const MProfile = m.model("profile", CProfile);
+
+
 
 module.exports = {
-    CQuiz,
-    MQuiz,
-    MGameResult,
-    MQuizPlan
+    ...mAppQuizGame,
+    ...mAllAppSettings,
+    ...mAppCourses,
+    MBot,
+    MProfile
 };
