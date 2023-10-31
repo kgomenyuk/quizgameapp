@@ -56,6 +56,7 @@ class AppPointsSender extends AppBase {
         this.myGradesCommand = settings.myGradesCommand;
         this.postPointsCommand = settings.postPointsCommand;
         this.listCommand = settings.listCommand;
+        this.sendPointsCommand = settings.sendPointsCommand;
         this.postBulkPointsCommand = settings.postBulkPointsCommand;
         
 		this.adminStartCommand = settings.adminStartCommand;
@@ -83,6 +84,9 @@ class AppPointsSender extends AppBase {
             this.postBulkPointsCommand = "bulkpoints";
         }
 
+        if(this.sendPointsCommand == null){
+            this.sendPointsCommand = "sendpoints";
+        }
 		this.refCode = settings.refCode;
 
     }
@@ -140,6 +144,14 @@ class AppPointsSender extends AppBase {
 		trCmdBulkPoints.handlerFunction = this.step05_01;
 		trgs.push(trCmdBulkPoints);
 
+        var trCmdSendPoints = new TGCommandEventTrigger("trCmdSendPoints", this.sendPointsCommand, null);
+		trCmdSendPoints.handlerFunction = this.step06_01;
+		trgs.push(trCmdSendPoints);
+
+        var trCbGrSendPoints = new TGCallbackEventTrigger("trCbGrSendPoints", null, this.currentAlias + "_0602_");
+		trCbGrSendPoints.handlerFunction = this.step06_02;
+		trgs.push(trCbGrSendPoints);
+        
         var trCbGrSelBulk = new TGCallbackEventTrigger("trCbGrSelBulk", null, this.currentAlias + "_0502_");
 		trCbGrSelBulk.handlerFunction = this.step05_02;
 		trgs.push(trCbGrSelBulk);
@@ -893,15 +905,7 @@ Choose from the list of grades:
         
 
 
-    return;
-    
-    state.pointsAmt = grade;
-    state.author = s.userId;
-
-    await this.postPoints(state);
-
-  
-		
+    return true;	
 }
 
 /**
@@ -1028,7 +1032,85 @@ step05_03_cancel = async (s, ctx, state) => {
     return false;
 }
 
+/**
+ * save
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoPointsSender} state 
+ */
+step06_01 = async (s, ctx, state) => {
+    if(s.userId != this.pointsAdminId ){
+        return false;
+    }
+    state.refCode = this.refCode;
+    var msgDef =
+`# SENDING
+## LIST
+Choose from the list of grades:
+{{ ? | | }}
+===
+{{ ? | 4 | btn_grades }}`;
+    
+            var list = await MPointsQuery.getAllGradingCategories(this.refCode);
+            const screen = s.uiInside("SENDING");
+            const msg = s.uiReg3(msgDef, false);
+            var btns = list.map((x,i)=>{
+                return {
+                    code: this.currentAlias + "_0602_" + x,
+                    text: "" + (i + 1)
+                };
+            });
+            list.forEach((x, i) => {
+               msg.addItem(x, (i + 1) + ". " + x); 
+            });
+            msg.setBtnPlace("btn_grades", btns);
+            msg.createButtonsTable();
+            await screen.postMessage(ctx, "LIST", s.userId);
+            s.watchCallback();
+    
+            state.expected = "";
+    return true;
+}
 
+/**
+ * save
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoPointsSender} state 
+ */
+
+step06_02 = async (s, ctx, state) => {
+    var prefix = this.currentAlias + "_0602_";
+    var grade = ctx.callbackQuery.data;
+    grade = grade.substr(prefix.length);
+
+    if(s.userId != this.pointsAdminId ){
+        return false;
+    }
+    
+    state.pointsCode = grade;
+
+    await ctx.reply("Ok. You have chosen " + grade);
+
+    state.points = await MPointsQuery.getUsersPoints(this.refCode, state.pointsCode);
+
+    if(state.points==null){
+        return false;
+    }
+
+    for (const x of state.points) {
+    var Massage = 
+`# RESULTS
+## GRADE
+Dear {{ Name | Name of User | }}, you grade for {{ Mark | Name of mark | }} is {{ Point | Student mark | }}.`;
+    const session = await (this.getAppCore().sMan).fetch2(x.uid);
+    const screen = session.uiInside("RESULTS");
+    const msg = session.uiReg3(Massage, false);
+    await screen.postMessage(ctx, "GRADE", x.uid);
+    }
+
+    return true;
+}
 /**
  * Set survey code
  * @param {asoPointsSender} state 
