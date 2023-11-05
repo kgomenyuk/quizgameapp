@@ -6,7 +6,7 @@ const { SessionObject, SessionManager } = require("../lib/Sessions");
 const { Context } = require("telegraf");
 
 const { TGCommandEventTrigger, TGCallbackEventTrigger, TGMessageEventTrigger } = require("../lib/Triggers");
-const { UIMessage } = require("../lib/UIScreen");
+const { UIMessage, UIScreen } = require("../lib/UIScreen");
 const { MPoints, MPointsAudience, MPointsCategory, MPointsQuery } = require("../data/model_appPoints");
 const { asoSurveyFields, asoPointsSender } = require("./asoPointsSender");
 const { ObjectId } = require("mongodb");
@@ -36,6 +36,11 @@ class AppPointsSender extends AppBase {
 	//adminStartCommand = "srvadmin";
 
 
+    /**
+         * @type { [{pointsCode:String, calc:(Object<String, Number>)=>Number}] } 
+         */
+    calculatedPoints=[];
+
 	/**
 	 * 
 	 * @param {SessionManager} sman 
@@ -52,12 +57,14 @@ class AppPointsSender extends AppBase {
 		//this.availableSurveyCodes=settings.availableSurveyCodes;
 		this.filterGroupId=settings.filterGroupId;
         this.pointsAdminId = settings.pointsAdminId;
+        
 		this.startCommand = settings.startCommand;
         this.myGradesCommand = settings.myGradesCommand;
         this.postPointsCommand = settings.postPointsCommand;
         this.listCommand = settings.listCommand;
         this.sendPointsCommand = settings.sendPointsCommand;
         this.postBulkPointsCommand = settings.postBulkPointsCommand;
+        this.feedbackCommand = settings.feedbackCommand;
         
 		this.adminStartCommand = settings.adminStartCommand;
 		if(this.adminStartCommand == null){
@@ -87,6 +94,11 @@ class AppPointsSender extends AppBase {
         if(this.sendPointsCommand == null){
             this.sendPointsCommand = "sendpoints";
         }
+
+        if(this.feedbackCommand == null){
+            this.feedbackCommand = this.currentAlias + "fb";
+        }
+
 		this.refCode = settings.refCode;
 
     }
@@ -163,6 +175,29 @@ class AppPointsSender extends AppBase {
         var trCbGrBulkCancel = new TGCallbackEventTrigger("trCbGrBulkCancel", null, this.currentAlias + "_0503cancel");
 		trCbGrBulkCancel.handlerFunction = this.step05_03_cancel;
 		trgs.push(trCbGrBulkCancel);
+
+
+        var trCmdPtsFeedback = new TGCommandEventTrigger("trCmdPtsFeedback", this.feedbackCommand, null);
+		trCmdPtsFeedback.handlerFunction = this.step07_01;
+		trgs.push(trCmdPtsFeedback);
+
+        var trCbFeedbackPoints = new TGCallbackEventTrigger("trCbFeedbackPoints", null, this.currentAlias + "_0702_");
+		trCbFeedbackPoints.handlerFunction = this.step07_02_points;
+		trgs.push(trCbFeedbackPoints);
+
+        var trMsgFeedbackMessage = new TGMessageEventTrigger("trMsgFeedbackMessage", (x,y, z)=>z.expected == "feedbackMsg");
+		trMsgFeedbackMessage.handlerFunction = this.step07_02_message;
+		trgs.push(trMsgFeedbackMessage);
+
+        var trCbFeedbackCancel = new TGCallbackEventTrigger("trCbFeedbackCancel", null, this.currentAlias + "_0702cancel");
+		trCbFeedbackCancel.handlerFunction = this.step07_02_cancel;
+		trgs.push(trCbFeedbackCancel);
+
+        var trCbFeedbackFinish = new TGCallbackEventTrigger("trCbFeedbackFinish", null, this.currentAlias + "_0703");
+        trCbFeedbackFinish.handlerFunction = this.step07_03;
+        trgs.push(trCbFeedbackFinish);
+
+        
         
 
         // security management
@@ -1078,11 +1113,12 @@ Choose from the list of grades:
  * @param {Context} ctx 
  * @param {asoPointsSender} state 
  */
-
 step06_02 = async (s, ctx, state) => {
     var prefix = this.currentAlias + "_0602_";
     var grade = ctx.callbackQuery.data;
     grade = grade.substr(prefix.length);
+
+    var botInfo = this.getAppCore().botInfo;
 
     if(s.userId != this.pointsAdminId ){
         return false;
@@ -1098,19 +1134,254 @@ step06_02 = async (s, ctx, state) => {
         return false;
     }
 
+
+    let counter = 0;
     for (const x of state.points) {
-    var Massage = 
+        
+        var msgDef = 
 `# RESULTS
-## GRADE
-Dear {{ Name | Name of User | }}, you grade for {{ Mark | Name of mark | }} is {{ Point | Student mark | }}.`;
-    const session = await (this.getAppCore().sMan).fetch2(x.uid);
-    const screen = session.uiInside("RESULTS");
-    const msg = session.uiReg3(Massage, false);
-    await screen.postMessage(ctx, "GRADE", x.uid);
+## GRADE_HTML
+Dear {{ Name | Name of User | }}, your grade for {{ Mark | Name of mark | }} is {{ Points | Student mark | }}
+<a href='http://t.me/${botInfo.userName}?start=C-${this.currentAlias}-${this.feedbackCommand}-${this.refCode}-${grade}'>press to write feedback</a>`;
+
+        if(x.timePosted != null && x.timePosted >= x.timeChanged){
+            continue;
+        }
+
+        const msg = UIMessage.messageFromString(msgDef, false, x.uid);
+        msg.setPlaceholder("Name", x.user.fname + " " + x.user.lname);
+        msg.setPlaceholder("Mark", x.pointsCode);
+        msg.setPlaceholder("Points", x.pointsAmt);
+
+        await UIScreen.postMessageObj(ctx, msg);
+
+        // now save the time posted so next time we will not send the same mark twice
+        await MPoints.updateOne({ _id: x._id },
+             {
+                $set:{
+                    timePosted: new Date()
+                }
+             }).exec();
+
+        counter++;
+
+        if(counter > 0 && counter % 28 === 0){ // no more than 30 messages per second
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
     }
+
+    await ctx.reply("Notifications were sent to " + counter + " users");
 
     return true;
 }
+
+/**
+ * show feedback dialog
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoPointsSender} state 
+ */
+step07_01 = async (s, ctx, state) => {
+    const msgDef = 
+    `# FEEDBACK
+## APPEAL
+Please, write a brief message (<1000 characters) and/or press a button below:
+1 - did not like the assignment or grade
+2 - the assignment was ok
+3 - the assignment was interesting and informative
+Subject: {{ Grade | grade name | }}
+Mark: {{ PointsAmt | current points amount | }}
+{{ ResultStatus | statis | }}
+{{ ResultRate | rating | }}
+{{ ResultText | text of the message with feedback | }}
+===
+{{ ${this.currentAlias + "_0702_1"} | ⭐ | dislike }}{{ ${this.currentAlias + "_0702_2"}  | ⭐ ⭐ | ok }}{{ ${this.currentAlias + "_0702_3"}  | 🌟 🌟 🌟 | good }}
+{{ ${this.currentAlias + "_0702cancel"}  | ⏏️ | cancel }}`;
+
+    var params = ctx.params;
+    if(params == null || params.data == null){
+        return false;
+    }
+
+    // there might be a start command mesage. We need to drop it.
+    if(ctx.message!=null &&  ctx.message.text.indexOf("start")>=0){
+        await ctx.deleteMessage(ctx.message.message_id);
+    }
+
+    const pointsCode = params.data[1];
+    let grade = await MPoints.findOne({
+        refCode: this.refCode, 
+        uid: s.userId,
+        pointsCode: pointsCode
+    }).exec();
+
+    if(grade == null){
+        ctx.reply("Grade was not found");
+        return false;
+    }else{
+        grade = grade.toObject();
+    }
+
+    state.feedback.id = grade._id;
+    state.feedback.rating = 0;
+    state.feedback.text = "";
+    state.feedback.inProgress = true;
+
+    const screen = s.uiInside("FEEDBACK");
+    const msg = s.uiReg3(msgDef, true);
+    msg.setPlaceholder("Grade", pointsCode);
+    msg.setPlaceholder("PointsAmt", grade.pointsAmt);
+
+    await screen.postMessage(ctx, "APPEAL", s.userId);
+
+    s.watchMessage();
+    s.watchCallback();
+    state.expected = "feedbackMsg";
+
+    return true;
+}
+
+
+/**
+ * save points
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoPointsSender} state 
+ */
+step07_02_points = async (s, ctx, state) => {
+    const prefix = this.currentAlias + "_0702_";
+    const v = ctx.callbackQuery.data.substring(prefix.length);
+    state.feedback.rating = v;
+
+    const screen = s.uiInside("FEEDBACK");
+    const msg = screen.getMessage("APPEAL");
+
+    msg.setPlaceholder("ResultRate", "Your choice: " + v);
+
+    await screen.updateMessage(ctx, "APPEAL");
+
+
+    // send a confirmation with button
+    const msg0 = screen.getMessage("RATE");
+    if(msg0!=null){
+        msg0.hideAllButtons();
+        await screen.updateMessage(ctx, "RATE");
+    }
+
+    const msgDef = 
+`# FEEDBACK
+## RATE
+You can send a message or press finish to save the feedback
+===
+{{ ${this.currentAlias + "_0703" } | Finish | finish}}{{ ${this.currentAlias + "_0702cancel"}  | ⏏️ | cancel }}`;
+    const msg2 = s.uiReg3(msgDef, true);
+    await screen.postMessage(ctx, "RATE", s.userId);
+
+    return true;
+}
+
+/**
+ * save message
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoPointsSender} state 
+ */
+step07_02_message = async (s, ctx, state) => {
+    const text = ctx.message.text.substring(0, 1000);
+    state.feedback.text = text;
+
+    const screen = s.uiInside("FEEDBACK");
+    const msg = screen.getMessage("APPEAL");
+
+    msg.setPlaceholder("ResultText", "Message:\n" + text);
+
+    await screen.updateMessage(ctx, "APPEAL");
+
+    // send a confirmation with button
+    const msg0 = screen.getMessage("RATE");
+    if(msg0!=null){
+        msg0.hideAllButtons();
+        await screen.updateMessage(ctx, "RATE");
+    }
+
+    const msgDef = 
+`# FEEDBACK
+## RATE
+You can send a message or press finish to save the feedback
+===
+{{ ${this.currentAlias + "_0703" } | Finish | finish}}{{ ${ this.currentAlias + "_0702cancel" }  | ⏏️ | cancel }}`;
+    const msg2 = s.uiReg3(msgDef, true);
+    await screen.postMessage(ctx, "RATE", s.userId);
+
+    return true;
+}
+
+
+/**
+ * cancel
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoPointsSender} state 
+ */
+step07_02_cancel = async (s, ctx, state) => {
+    const screen = s.uiInside("FEEDBACK");
+    const msg = screen.getMessage("APPEAL");
+    msg.setPlaceholder("ResultStatus", "State: Cancelled");
+    await screen.postMessage(ctx, "APPEAL", s.userId);
+
+    await ctx.reply("You have cancelled the survey");
+
+    return false;
+}
+
+
+/**
+ * finish
+ * @param {SessionObject} s 
+ * @param {Context} ctx 
+ * @param {asoPointsSender} state 
+ */
+step07_03 = async (s, ctx, state) => {
+    
+    if(state.feedback == null || state.feedback.id == null || state.feedback.inProgress!= true){
+        return false;
+    }
+
+    state.feedback.inProgress=false;
+
+    await MPoints.updateOne({
+        _id: state.feedback.id
+    }, {
+        $push:{
+            feedback:{
+                timeChanged: new Date(), 
+                text: state.feedback.text,
+                rating: state.feedback.rating
+            }
+        }
+    }).exec();
+
+    const screen = s.uiInside("FEEDBACK");
+    const msg = screen.getMessage("APPEAL");
+    msg.setPlaceholder("ResultStatus", "Status: Sent");
+
+    // clear buttons
+    const msg0 = screen.getMessage("RATE");
+    if(msg0!=null){
+        msg0.hideAllButtons();
+        await screen.updateMessage(ctx, "RATE");
+    }
+    const msg1 = screen.getMessage("APPEAL");
+    if(msg1!=null){
+        msg1.hideAllButtons();
+        await screen.updateMessage(ctx, "APPEAL");
+    }
+
+    await ctx.reply("Thank you for the feedback");
+
+    return false;
+}
+
 /**
  * Set survey code
  * @param {asoPointsSender} state 
@@ -1203,7 +1474,23 @@ Your grades:
 
         var list = await MPointsQuery.getPoints(refCode, userId);
         
+        // adding calculated ones
+        if(this.calculatedPoints!=null && this.calculatedPoints.length>0){
+            var list2 = list.reduce((p,x)=>{
+                p[x.pointsCode] = x.pointsAmt;
+                return p;
+            }, {});
 
+            this.calculatedPoints.forEach(cp => {
+                list.push({
+                    author:"robot",
+                    pointsCode: cp.pointsCode,
+                    pointsAmt: cp.calc(list2),
+                    refCode: this.refCode
+                });
+            });
+            
+        }
 
 		const screen = s.uiInside("MYGRADES");
 		const msg = s.uiReg3(msgDef, false);

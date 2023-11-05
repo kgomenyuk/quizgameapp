@@ -38,6 +38,13 @@ class asoPointsSender {
 		createdTime: null
     };
 
+    feedback = {
+        id:null,
+        text:"",
+        rating: 0,
+        inProgress: false
+    };
+
     groupIds=[];
 
    }

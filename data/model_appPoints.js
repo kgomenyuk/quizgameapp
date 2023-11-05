@@ -19,6 +19,11 @@ const CPoints = new m.Schema(
             timeChanged: Date,
             pointsAmt: Number,
             author: String
+        }],
+        feedback:[{
+          timeChanged: Date, 
+          text: String,
+          rating: Number
         }]
     }
 );
@@ -315,10 +320,13 @@ class MPointsQuery {
              */
             {
               refCode: 1,
-              _id: 0,
+              _id: 1,
               uid: 1,
               pointsAmt: 1,
               timeChanged: 1,
+              pointsCode: 1,
+              timeChanged: 1, 
+              timePosted: 1
             },
         },
         {
@@ -354,6 +362,25 @@ class MPointsQuery {
                   },
                 },
               ],
+            },
+        },
+        {
+          $project:
+            /**
+             * specifications: The fields to
+             *   include or exclude.
+             */
+            {
+              refCode: 1,
+              _id: 1,
+              uid: 1,
+              pointsAmt: 1,
+              timeChanged: 1,
+              pointsCode: 1,
+              timePosted: 1,
+              user: {
+                $arrayElemAt: ["$user", 0]
+              }
             },
         },
       ];
