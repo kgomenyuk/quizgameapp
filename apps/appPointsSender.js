@@ -24,7 +24,7 @@ class AppPointsSender extends AppBase {
 		this.taskId = "";
 		this.taskCode = "";
 
-		this.app = "sfields";
+		this.app = "grader";
 		this.isPublicAllowed = false;
 	}
 
