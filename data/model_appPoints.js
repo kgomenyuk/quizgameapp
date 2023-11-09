@@ -19,6 +19,11 @@ const CPoints = new m.Schema(
             timeChanged: Date,
             pointsAmt: Number,
             author: String
+        }],
+        feedback:[{
+          timeChanged: Date, 
+          text: String,
+          rating: Number
         }]
     }
 );
@@ -295,6 +300,95 @@ class MPointsQuery {
       return result;
     }
 
+    static async getUsersPoints(refCode, pointsCode){
+      var query = [
+        {
+          $match:
+            /**
+             * query: The query in MQL.
+             */
+            {
+              refCode: refCode,
+              pointsCode: pointsCode,
+            },
+        },
+        {
+          $project:
+            /**
+             * specifications: The fields to
+             *   include or exclude.
+             */
+            {
+              refCode: 1,
+              _id: 1,
+              uid: 1,
+              pointsAmt: 1,
+              timeChanged: 1,
+              pointsCode: 1,
+              timeChanged: 1, 
+              timePosted: 1
+            },
+        },
+        {
+          $lookup:
+            /**
+             * from: The target collection.
+             * localField: The local join field.
+             * foreignField: The target join field.
+             * as: The name for the results.
+             * pipeline: Optional pipeline to run on the foreign collection.
+             * let: Optional variables to use in the pipeline field stages.
+             */
+            {
+              from: "points_auds",
+              as: "user",
+              let: {
+                f_uid: "$uid",
+                f_ref: "$refCode",
+              },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        {
+                          $eq: ["$$f_uid", "$uid"],
+                        },
+                        {
+                          $eq: ["$$f_ref", "$refCode"],
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+        },
+        {
+          $project:
+            /**
+             * specifications: The fields to
+             *   include or exclude.
+             */
+            {
+              refCode: 1,
+              _id: 1,
+              uid: 1,
+              pointsAmt: 1,
+              timeChanged: 1,
+              pointsCode: 1,
+              timePosted: 1,
+              user: {
+                $arrayElemAt: ["$user", 0]
+              }
+            },
+        },
+      ];
+
+      var result = await MPoints.aggregate(query).exec();
+
+      return result;
+    }
 }
 
 
