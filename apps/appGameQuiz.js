@@ -207,7 +207,7 @@ class AppGameQuiz extends AppBase {
 ## START_TITLE
 The game is still being created. You can use the following codes to invite people in the game:
 Quiz master - {{ CODE_QUIZMASTER }}
-Players - {{ CODE_PLAYERS }}. {{ LINK_PLAYERS }}
+Players - {{ CODE_PLAYERS }} {{ LINK_PLAYERS }}
 Audience - {{ CODE_AUDIENCE }}
 
 {{ LINK_GAME_VIEW }}
@@ -248,7 +248,7 @@ Ok, you have chosen {{ GAMEPLAN }}
 
 		var txtGamePlanID = ctx.message.text;
 		if(ctx.params!=null && ctx.params.data!=null){//txtGamePlanID.startsWith("/start C-gm2-gm2plid-")){
-			txtGamePlanID = ctx.params.data;//txtGamePlanID.substring(7,100);
+			txtGamePlanID = ctx.params.data[0];//txtGamePlanID.substring(7,100);
 		}
 
 		const gamePlanExists = 
@@ -817,7 +817,7 @@ Game code was not sent. Please, use the following format: /play2 GameCode`;
 		// 
 		var gameID = "";
 		if(ctx.params!=null && ctx.params.data!=null){
-			gameID = ctx.params.data;
+			gameID = ctx.params.data[0];
 			var gi = await getGameInstanceHeader(gameID);
 			gameID = gi.id2; await ctx.deleteMessage(ctx.message.message_id);
 		}else{
