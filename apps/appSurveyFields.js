@@ -146,10 +146,12 @@ class AppSurveyFields extends AppBase {
 		}
         for (let index = 0; index < surveys.length; index++) {
             const s = surveys[index];
+			const sc = s.surveyCode;
 
-            var pfx = this.currentAlias+ "." + s.surveyCode + ".";
+            var pfx = this.currentAlias+ "_" + s.surveyCode + "_";
 
-            s.surveyFields.forEach((field, idx) => {
+            s.surveyFields.forEach((field, i) => {
+				const idx = pfx + i;
                 // each field => three triggers
 				//   back
 				//   skip
@@ -179,7 +181,7 @@ class AppSurveyFields extends AppBase {
 				if(field.fieldType == "message"){
 					// message
 					var trgFieldAnswer = new TGMessageEventTrigger("survey_step_" + idx + "_answer", 
-							(x,y, z)=>z.curField == pos && z.expected == "answer");
+							(x,y, z)=>z.curField == pos && z.expected == "answer" && z.surveyCode == sc);
 					trgFieldAnswer.handlerFunction = this.step_get_answer;
 					trgs.push(trgFieldAnswer);
 				}
@@ -191,7 +193,7 @@ class AppSurveyFields extends AppBase {
 						//const element = options[index];
 					//}
 					var trgFieldAnswerO = new TGCallbackEventTrigger("survey_step_" + idx + "_opt", 
-							(x,y, z)=>z.curField == pos && z.expected == "choice" && y.data.startsWith(alias + "_0201_"));
+							(x,y, z)=>z.curField == pos && z.expected == "choice" && y.data.startsWith(alias + "_0201_") && z.surveyCode == sc);
 					trgFieldAnswerO.handlerFunction = this.step_get_answer_option;
 					trgs.push(trgFieldAnswerO);
 				}
