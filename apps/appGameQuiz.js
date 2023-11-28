@@ -114,7 +114,9 @@ class AppGameQuiz extends AppBase {
 
 		var trCbGameBeginRound = new TGCallbackEventTrigger("trCbGameBeginRound", null, "^g2\!0508\!start\!");
 		trCbGameBeginRound.handlerFunction = this.step05_09_ShowQuestion;
-		
+
+		var trCbGameSaveAnswer = new TGCallbackEventTrigger("trCbGameSaveAnswer", null, "^g2\!answer\!pl\!");
+		trCbGameSaveAnswer.handlerFunction = this.step05_10_TeamAnswered;		
 
 		return [
 			trCmdGame2, trMsgstep01_02_enterID, trCmdSetPlanId,
@@ -126,7 +128,7 @@ class AppGameQuiz extends AppBase {
 
 			trCmdPlay2, trCbPlayJoinTeam2, trCbPlayJoinTeamCancel2,
 
-			trCbGameBegin1stRound, trCbGameSkipRound, trCbGameBeginRound
+			trCbGameBegin1stRound, trCbGameSkipRound, trCbGameBeginRound, trCbGameSaveAnswer
 			];
 	}
 	
@@ -1238,13 +1240,24 @@ Choose correct option:\n
 		return true;
 	};
 /**
-	 * Handle GameID message
+	 * Handle answers
 	 * @param {SessionObject} s 
 	 * @param {Context} ctx 
 	 * @param {asoGameQuiz} state 
 	 */
 	async step05_10_TeamAnswered(s, ctx, state) {
-		
+		var prefix = "g2!answer!pl!";
+		var str = ctx.callbackQuery.data.substring(prefix.length);
+		var arrStr = str.split("!");
+		const rId = arrStr[0];
+		const opId = arrStr[1];
+
+		// write this to the DB
+		const game = state.game;
+		const ans = await game.postAnswer(s.userId, opId);
+
+		return true;
+
 	};
 /**
 	 * Handle GameID message
