@@ -261,7 +261,7 @@ async function launch(options) {
   console.log("Bot is running and listening");
 
 	await currentTg.launch({
-    allowedUpdates:["callback_query", "message", "chat_member"]
+    allowedUpdates:["callback_query", "message", "chat_member", "poll_answer"]
   });
 }
 

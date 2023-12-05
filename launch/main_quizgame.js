@@ -2,6 +2,7 @@ const { AppCourses } = require("../apps/appCourses");
 const { AppGameQuiz } = require("../apps/appGameQuiz");
 const { AppPointsSender } = require("../apps/appPointsSender");
 const { AppSurveyFields } = require("../apps/appSurveyFields");
+const { AppPool } = require("../apps/appPool");
 const { UIMessage } = require("../lib/UIScreen");
 
 UIMessage.debug = true;
@@ -15,6 +16,13 @@ let mapping = [
 {
     alias: "course",
     newInstance: () => new AppCourses()
+},
+{
+    alias: "pool",
+    newInstance: () => {
+        var app = new AppPool();
+        return app;
+    }
 },
 ];
 
