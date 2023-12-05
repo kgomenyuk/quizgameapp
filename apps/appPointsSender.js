@@ -65,6 +65,7 @@ class AppPointsSender extends AppBase {
         this.sendPointsCommand = settings.sendPointsCommand;
         this.postBulkPointsCommand = settings.postBulkPointsCommand;
         this.feedbackCommand = settings.feedbackCommand;
+        this.sendHelpCommand = settings.sendHelpCommand;
         
 		this.adminStartCommand = settings.adminStartCommand;
 		if(this.adminStartCommand == null){
@@ -95,6 +96,10 @@ class AppPointsSender extends AppBase {
             this.sendPointsCommand = "sendpoints";
         }
 
+        if(this.sendHelpCommand == null){
+            this.sendHelpCommand = "help";
+        }
+
         if(this.feedbackCommand == null){
             this.feedbackCommand = this.currentAlias + "fb";
         }
@@ -109,6 +114,10 @@ class AppPointsSender extends AppBase {
 		var alias = this.currentAlias;
 
 		// start the grading session
+        var trCmdHelp = new TGCommandEventTrigger("trCmdHelp", this.sendHelpCommand, null);
+		trCmdHelp.handlerFunction = this.step_help;
+		trgs.push(trCmdHelp);
+
 		var trCmdGrManager = new TGCommandEventTrigger("trCmdGrManager", this.startCommand, null);
 		trCmdGrManager.handlerFunction = this.step01_01;
 		trgs.push(trCmdGrManager);
@@ -493,8 +502,64 @@ Please, choose a group from the list: {{ANSWER | | }}
 	 * @param {Context} ctx 
 	 * @param {asoPointsSender} state 
 	 */
+	step_help = async (s, ctx, state)=> {
+		
+		const msgDef =
+`# HELPS
+## COMMANDLIST
+List of command:
+/mypoints - return your current marks
+===
+`;
+
+        const msgDefAdmins =
+`# HELPSADMINS
+## COMMANDLISTADMIN
+List of command:
+/srvpoints [10 last symbols api key] - Registration in the admin area
+/srvadmin [4 last symbols api key] - registration bot in the group of students
+/listgrades - command for adding groups of marks, also for reload audience
+/mypoints - return your current marks
+/addpoints - adding marks for students in groups of marks, didnt work without group of marks
+/listusers - return current users in group
+/bulkpoints [userID  mark] - adding marks for users by there ids. Between UserId and mark needs doublespace. Between marks and new userId needs /n(new row)
+
+===
+`;
+        
+        if(s.userId != this.pointsAdminId ){
+            const screen = s.uiInside("HELPS");
+            const msg = s.uiReg3(msgDef, false);
+    
+            const userId = ctx.from.id;
+            await screen.postMessage(ctx, "COMMANDLIST", userId);
+            s.watchCallback();
+            
+            return true;
+        }
+
+        const screen = s.uiInside("HELPSADMINS");
+        const msg = s.uiReg3(msgDefAdmins, false);
+
+        const userId = ctx.from.id;
+        await screen.postMessage(ctx, "COMMANDLISTADMIN", userId);
+        s.watchCallback();
+        
+        return true;
+	}
+
+	/**
+	 * Find 
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoPointsSender} state 
+	 */
 	step01_01 = async (s, ctx, state)=> {
 
+        if(s.userId != this.pointsAdminId ){
+            return false;
+        }
+        
 		var refCode = this.refCode;
         var cats = await (MPointsCategory.find({ refCode: refCode })).exec();
 		if(cats != null && cats.length > 0){
@@ -542,6 +607,11 @@ List of grades:
  * @param {asoPointsSender} state 
  */
 	step01_02 = async (s, ctx, state) => {
+
+        if(s.userId != this.pointsAdminId ){
+            return false;
+        }
+
 		const userId = ctx.from.id;
 
 		var msgDef =
@@ -572,6 +642,11 @@ Write the name of a new grade
  * @param {asoPointsSender} state 
  */
 	step01_03 = async (s, ctx, state) => {
+        
+        if(s.userId != this.pointsAdminId ){
+            return false;
+        }
+
 		const userId = ctx.from.id;
         var grade = ctx.message.text;
 		
@@ -603,6 +678,11 @@ Write the name of a new grade
  * @param {asoPointsSender} state 
  */
 	step01_04 = async (s, ctx, state) => {
+        
+        if(s.userId != this.pointsAdminId ){
+            return false;
+        }
+
 		const userId = ctx.from.id;
 
 		var msgDef =
