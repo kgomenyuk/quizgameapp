@@ -18,7 +18,10 @@ const CPoll = new m.Schema(
         pollId: String,
         pollData: String,
         pollOwner: Number,
+        pollChatId: Number,
         pollMessageId: Number,
+        pollFinished: Boolean,
+        pollCode: String
     }
 );
 CPoll.index({pollId: "1"}, {unique: true});

@@ -10,14 +10,17 @@ const { MPoll, MAnswer } = require("../data/model_poll");
 const { Int32 } = require("mongodb");
 const { MBot, MProfile, MQuizPlan, MAppSettings, MGameInstance } = require("../data/model");
 
-// App responsible for pool activity.
-class AppPool extends AppBase {
+// App responsible for poll activity.
+class AppPoll extends AppBase {
     _init() {
 		this.app = "poll";
         this.isPublicAllowed = true;
+        this.createPollCommand = "poll_c";
+        this.finishPollCommand = "poll_f";
+        this.leaderboardComman = "poll_lb";
+        this.listOpenedPollsCommand = "poll_lst";
 	}
 	getState(){
-
 	}
 
     _requireSharedData = (sman) => {
@@ -43,19 +46,23 @@ class AppPool extends AppBase {
 	}
 	
 	_getTriggers(){
-		var createPoolTrigger = new TGCommandEventTrigger("createPoll", "createPoll", null);
-		createPoolTrigger.handlerFunction = this.create_pool;	
+		var createPollTrigger = new TGCommandEventTrigger("poll_c", this.createPollCommand, null);
+		createPollTrigger.handlerFunction = this.create_poll;	
 
-        var finishPoolTrigger = new TGCommandEventTrigger("finishPoll", "finishPoll", null);
-		finishPoolTrigger.handlerFunction = this.finish_poll;	
+        var finishPollTrigger = new TGCommandEventTrigger("poll_f", this.finishPollCommand, null);
+		finishPollTrigger.handlerFunction = this.finish_poll;	
 
-        var leaderboardTrigger = new TGCommandEventTrigger("lb", "lb", null);
+        var leaderboardTrigger = new TGCommandEventTrigger("poll_lb", this.leaderboardComman, null);
 		leaderboardTrigger.handlerFunction = this.leaderboard;
 
+        var listOpenedPollsTrigger = new TGCommandEventTrigger("poll_lst", this.listOpenedPollsCommand, null);
+        listOpenedPollsTrigger.handlerFunction = this.list_open_polls;
+
 		return [
-			createPoolTrigger,
-            finishPoolTrigger,
-            leaderboardTrigger
+			createPollTrigger,
+            finishPollTrigger,
+            leaderboardTrigger,
+            listOpenedPollsTrigger
 			];
 	}
 
@@ -80,7 +87,7 @@ class AppPool extends AppBase {
                 if(pollData.isQuiz && pollData.correctOptionId == option){
                     isCorrect = 1;
                 }
-                await MAnswer.create({pollId: pollId, userId: ctx.update.poll_answer.user.id, answerId: option, chatId: pollData.chatId, isCorrect: isCorrect});
+                await MAnswer.create({pollId: pollId, userId: ctx.update.poll_answer.user.id, answerId: option, chatId: poll.pollChatId, isCorrect: isCorrect});
             }
 
             const user = ctx.update.poll_answer.user;
@@ -139,7 +146,10 @@ class AppPool extends AppBase {
             s.watchMessage();
             await ctx.deleteMessage(ctx.message.message_id);
             if(!ctx.update.message?.reply_to_message?.message_id)
+            {
+                await this.finish_poll_by_ids(s, ctx, state);
                 return;
+            }
 
             const poll = await MPoll.findOne({pollMessageId: ctx.update.message.reply_to_message.message_id}).exec();
             if(!poll)
@@ -149,9 +159,13 @@ class AppPool extends AppBase {
             if(poll.pollOwner != ctx.from.id)
                 return;
 
-            const pollData = JSON.parse(poll.pollData); 
+            poll.pollFinished=true;
 
-            await ctx.telegram.stopPoll(pollData.chatId, poll.pollMessageId);
+            await MPoll.updateOne(
+                {pollMessageId: ctx.update.message.reply_to_message.message_id},
+                poll);
+
+            await ctx.telegram.stopPoll(poll.pollChatId, poll.pollMessageId);
 
         }
         catch(e){
@@ -159,9 +173,91 @@ class AppPool extends AppBase {
         }
     }
 
-    async create_pool(s, ctx, state){
+    async finish_poll_by_ids(s, ctx, state){
+        const cmdLength = ctx.message.entities[0].length;
+        const text = ctx.message.text.substr(cmdLength + 1);
+        const pollCodes = text.trim(" ").trim(",").split(',');
+        let error = '';
+        for(let i=0; i< pollCodes.length; i++){
+            const pollCode = pollCodes[i];
+            const poll = await MPoll.findOne({pollCode: pollCode}).exec();
+            if(!poll){
+                if(error != '')
+                    error += '\n';
+                error += "Poll ["+pollCode +"] not foound";
+                continue;
+            }
+            if(poll.pollOwner != ctx.from.id){
+                if(error != '')
+                    error += '\n';
+                error += "Poll ["+pollCode +"] is not yours";
+                continue;
+            }
+            if(poll.pollFinished){
+                if(error != '')
+                    error += '\n';
+                error += "Poll ["+pollCode +"] already finished";
+                continue;
+            }
+            poll.pollFinished=true;
 
-        const helpMessage = "Greate poll with command: /createpool {question}?{anser1};{answer2};...;{anser N}\n To mark correct answer add '*' in the begginning of the answer."
+            await MPoll.updateOne(
+                {pollCode: pollCode},
+                poll).exec();
+
+            await ctx.telegram.stopPoll(poll.pollChatId, poll.pollMessageId);
+        }
+
+        if(error != '')
+            ctx.reply(error);
+    }
+
+    async list_open_polls(s, ctx, state){
+        try{
+            s.watchMessage();
+            await ctx.deleteMessage(ctx.message.message_id);
+            const chatId = ctx.chat.id;
+            const polls = await MPoll.find({pollChatId: chatId, pollFinished: false}).exec();
+
+            if(polls.length == 0){
+                ctx.reply("No active polls.");
+                return;
+            }
+
+            let result = "Active polls:";
+            for(let i=0; i< polls.length; i++){
+                const poll = polls[i];
+                const pollData = JSON.parse(poll.pollData);
+                result += "\n\t[";
+                result += poll.pollCode;
+                result += "] ";
+                result += pollData.name.substring(0, 15);
+                if(pollData.name.length > 15){
+                    result+="..."
+                }
+            }
+            ctx.reply(result);
+        }
+        catch(e){
+            console.log(e);
+        }
+    }
+
+    makeid(length) {
+        let result = '';
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const charactersLength = characters.length;
+        let counter = 0;
+        while (counter < length) {
+          result += characters.charAt(Math.floor(Math.random() * charactersLength));
+          counter += 1;
+        }
+        return result;
+    }
+
+    async create_poll(s, ctx, state){
+
+        const helpMessage = "Greate poll with command: /"+this.createPollCommand+" {question}?{anser1};{answer2};...;{anser N}\n To mark correct answer add '*' in the begginning of the answer."
         try{
             s.watchMessage();
             const cmdLength = ctx.message.entities[0].length;
@@ -178,7 +274,6 @@ class AppPool extends AppBase {
             const namePoll = arrPoll[0];
             const chatId = ctx.chat.id;
             const objPoll = {
-                chatId: chatId,
                 options: arrOptions,
                 name: namePoll,
                 isMultiple: false,
@@ -216,7 +311,7 @@ class AppPool extends AppBase {
             if(isQuiz === true){
                 objPoll.correctOptionId = correctOptionId;
             }
-            this.postNewPoll(objPoll, ctx)
+            this.postNewPoll(objPoll, ctx, chatId)
 
         }
         catch(e){
@@ -225,7 +320,7 @@ class AppPool extends AppBase {
         }
     }
 
-    async postNewPoll(objPoll, ctx){
+    async postNewPoll(objPoll, ctx, chatId){
         // creating a poll
         var pollId=0;
         var messageId = 0;
@@ -233,7 +328,7 @@ class AppPool extends AppBase {
             const poll = await ctx
             .telegram
             .sendQuiz(
-                    objPoll.chatId,
+                    chatId,
                     objPoll.name,
                     objPoll.options.map((o)=>o.text),
                     {
@@ -247,7 +342,7 @@ class AppPool extends AppBase {
             const poll = await ctx
             .telegram
             .sendPoll(
-                    objPoll.chatId,
+                    chatId,
                     objPoll.name,
                     objPoll.options.map((o)=>o.text),
                     {
@@ -257,10 +352,11 @@ class AppPool extends AppBase {
             pollId = poll.poll.id;
             messageId = poll.message_id;
         }
-        await MPoll.create({ pollId: pollId, pollData: JSON.stringify(objPoll), pollOwner: ctx.from.id, pollMessageId: messageId}); 
+        await MPoll.create({ pollId: pollId, pollChatId: chatId, pollData: JSON.stringify(objPoll),
+            pollOwner: ctx.from.id, pollMessageId: messageId, pollFinished: false, pollCode: this.makeid(10)}); 
     }
 }
 
 module.exports = {
-	AppPool 
+	AppPoll 
 };
