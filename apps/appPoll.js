@@ -44,6 +44,14 @@ class AppPoll extends AppBase {
 
 		return true;
 	}
+
+    _loadApplicationSettings = async (a) =>{
+		
+		var settings = await super._loadApplicationSettings(a);
+		
+        this.pointsAdminId = settings.pointsAdminId;
+        this.checkAdmin = settings.checkAdmin ?? true;
+    }
 	
 	_getTriggers(){
 		var createPollTrigger = new TGCommandEventTrigger("poll_c", this.createPollCommand, null);
@@ -145,6 +153,10 @@ class AppPoll extends AppBase {
         try{
             s.watchMessage();
             await ctx.deleteMessage(ctx.message.message_id);
+            if(this.checkAdmin && s.userId != this.pointsAdminId ){
+                return false;
+            }
+
             if(!ctx.update.message?.reply_to_message?.message_id)
             {
                 await this.finish_poll_by_ids(s, ctx, state);
@@ -216,6 +228,10 @@ class AppPoll extends AppBase {
         try{
             s.watchMessage();
             await ctx.deleteMessage(ctx.message.message_id);
+            if(this.checkAdmin && s.userId != this.pointsAdminId ){
+                return false;
+            }
+
             const chatId = ctx.chat.id;
             const polls = await MPoll.find({pollChatId: chatId, pollFinished: false}).exec();
 
@@ -260,14 +276,17 @@ class AppPoll extends AppBase {
         const helpMessage = "Greate poll with command: /"+this.createPollCommand+" {question}?{anser1};{answer2};...;{anser N}\n To mark correct answer add '*' in the begginning of the answer."
         try{
             s.watchMessage();
+            await ctx.deleteMessage(ctx.message.message_id);
+            if(this.checkAdmin && s.userId != this.pointsAdminId ){
+                return false;
+            }
+
             const cmdLength = ctx.message.entities[0].length;
             const text = ctx.message.text.substr(cmdLength + 1);
             if(text == 'help'){
                 ctx.reply(helpMessage);
                 return;
             }
-
-            await ctx.deleteMessage(ctx.message.message_id);
 
             const arrPoll =  text.split("?");
             const arrOptions = arrPoll[1].trim(";").trim(" ").split(";").filter(x => x.length > 0);
@@ -347,7 +366,6 @@ class AppPoll extends AppBase {
                     objPoll.options.map((o)=>o.text),
                     {
                         is_anonymous: false,
-                        //allows_multiple_answers: objPoll.isMultiple
                     });
             pollId = poll.poll.id;
             messageId = poll.message_id;

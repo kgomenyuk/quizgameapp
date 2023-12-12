@@ -18,7 +18,7 @@ let mapping = [
     newInstance: () => new AppCourses()
 },
 {
-    alias: "pool",
+    alias: "poll",
     newInstance: () => {
         var app = new AppPoll();
         return app;
