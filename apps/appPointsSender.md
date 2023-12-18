@@ -7,7 +7,7 @@ Points Sender is an application designed to manage student grades.
 ### 1. Viewing grades
 
 In order to display a list of their current grades, students should use the `/mypoints` command
-![Alt text](image.png)
+![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/5cc4cbcd-af69-4a25-a0d5-1daa1572ac47)
 
 ## Functions for administrator
 
