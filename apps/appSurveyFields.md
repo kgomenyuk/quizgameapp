@@ -21,3 +21,9 @@ Or by selecting the desired option with the button:
 ![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/d35760c9-56d5-4e7a-963b-1745ab2e9738)
 
 There are also three buttons in each question: ⏏️ to close and cancel the survey, ⏩ to skip the current question and go to the next one and ⬅️ to return to the previous question.
+
+When the survey is complete, a message is shown to the user
+
+![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/353e193f-14b9-4959-b393-5aed115be300)
+
+And all answers are written to the `appquiz.survey_fields_answers` table in the database
