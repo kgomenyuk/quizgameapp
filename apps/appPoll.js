@@ -320,7 +320,7 @@ class AppPoll extends AppBase {
 
     /**
      * Processes @see {createPollCommand} command.
-	 * Crates poll with given question and answer.
+	 * Crates poll with given question and answers.
      * Deletes user message with command.
 	 * @param {SessionObject} s 
 	 * @param {Context} ctx 
