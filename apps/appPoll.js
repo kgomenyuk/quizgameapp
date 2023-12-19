@@ -10,7 +10,9 @@ const { MPoll, MAnswer } = require("../data/model_poll");
 const { Int32 } = require("mongodb");
 const { MBot, MProfile, MQuizPlan, MAppSettings, MGameInstance } = require("../data/model");
 
-// App responsible for poll activity.
+/**
+ * App responsible for poll functionality.
+ */
 class AppPoll extends AppBase {
     _init() {
 		this.app = "poll";
@@ -74,6 +76,12 @@ class AppPoll extends AppBase {
 			];
 	}
 
+    /**
+	 * Processes users poll anwer (from telegram poll API callback).
+     * User can add answer or cancell answer.
+     * Deletes user message with command.
+	 * @param {Context} ctx 
+	 */
     async recievePollAnsewr(ctx){
 
         try{
@@ -106,6 +114,14 @@ class AppPoll extends AppBase {
         }
     }
 
+    /**
+     * Processes @see {leaderboardComman} command.
+	 * Prints users leaderboard.
+     * Deletes user message with command.
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
     async leaderboard(s, ctx, state){
         try{
             s.watchMessage();
@@ -149,6 +165,17 @@ class AppPoll extends AppBase {
         }
     }
 
+    /**
+     * Processes @see {finishPollCommand} command.
+	 * Finishes poll or polls.
+     * There ara 2 modes for this command:
+     *  1. Users reply to poll message with finish command. Then poll closes.
+     *  2. User call finish command with comma separated poll ids. Then all poll with passed ids finishes.
+     * Deletes user message with command.
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
     async finish_poll(s, ctx, state){
         try{
             s.watchMessage();
@@ -185,6 +212,13 @@ class AppPoll extends AppBase {
         }
     }
 
+
+    /**
+	 * Finishes polls by ids.
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
     async finish_poll_by_ids(s, ctx, state){
         const cmdLength = ctx.message.entities[0].length;
         const text = ctx.message.text.substr(cmdLength + 1);
@@ -224,6 +258,14 @@ class AppPoll extends AppBase {
             ctx.reply(error);
     }
 
+    /**
+     * Processes @see {listOpenedPollsCommand} command.
+	 * Lists active polls with ids and questions.
+     * Deletes user message with command.
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
     async list_open_polls(s, ctx, state){
         try{
             s.watchMessage();
@@ -259,6 +301,10 @@ class AppPoll extends AppBase {
         }
     }
 
+    /**
+	 * Genereate id with number and letters (like NanoId).
+	 * @param {Number} length Length of id
+	 */
     makeid(length) {
         let result = '';
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -271,6 +317,15 @@ class AppPoll extends AppBase {
         return result;
     }
 
+
+    /**
+     * Processes @see {createPollCommand} command.
+	 * Crates poll with given question and answer.
+     * Deletes user message with command.
+	 * @param {SessionObject} s 
+	 * @param {Context} ctx 
+	 * @param {asoSurveyFields} state 
+	 */
     async create_poll(s, ctx, state){
 
         const helpMessage = "Greate poll with command: /"+this.createPollCommand+" {question}?{anser1};{answer2};...;{anser N}\n To mark correct answer add '*' in the begginning of the answer."
@@ -339,6 +394,13 @@ class AppPoll extends AppBase {
         }
     }
 
+    /**
+     * Creates telgramm poll in chat.
+     * Stores poll in DB.
+	 * @param {Object} objPoll 
+	 * @param {Context} ctx 
+	 * @param {Number} chatId 
+	 */
     async postNewPoll(objPoll, ctx, chatId){
         // creating a poll
         var pollId=0;
