@@ -182,7 +182,7 @@ And then add this data:
 
 # Step 10
 
-Also add this data to survey_fields collection in MongoDB:
+Also add this data (or any other data with your questions for the quiz in exactly this structure) to survey_fields collection in MongoDB:
 
 ```json
 survey_settings:
