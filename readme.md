@@ -20,6 +20,12 @@ git clone [https://github.com/kgomenyuk/quizgameapp.git](https://github.com/kgom
 
 Open this project via VS Code.
 
+In the terminal inside the cloned project run the following command in order to get all project dependencies:
+
+```bash
+npm install
+```
+
 # Step 2
 
 Create your own telegram bot via @BotFather in Telegram. 
