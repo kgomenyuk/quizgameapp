@@ -334,7 +334,7 @@ Run server.js file via VS Code, the output should be the following:
 
 # Step 12
 
-Then you should add your made earlier telegram bot to any group chat in Telegram.
+Then you should add your made earlier telegram bot to any group chat in Telegram and give him an admin rights.
 
 After that type some commands to the bot:
 
