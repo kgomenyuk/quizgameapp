@@ -23,6 +23,8 @@ In order to add a new grade group, the administrator needs to use the `/listgrad
 Then it is suggested to either add a new grade, delete existing grades or reload the audience
 If the administrator chooses to add a new category of grades, a corresponding message will appear, which must be answered with a text with the name of the grade group, after which it will be stored in the database in the appquiz table. `.points_cats`
 
+![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/72880dc3-b8ae-4814-9447-d1e467ea7238)
+
 For example, a teacher has given a test and wants to grade it, so he needs to create the Test group of grades
 
 ![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/7facaf61-6b47-4a76-860f-04c9e4541cc3)
