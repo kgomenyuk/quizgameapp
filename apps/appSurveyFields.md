@@ -1,6 +1,6 @@
 # AppSurveyFields documentation
 
-Points Sender is an application designed to conduct surveys among students.
+Survey Fields is an application designed to conduct surveys among students.
 
 ## Basic functionality
 
