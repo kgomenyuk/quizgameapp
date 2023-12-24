@@ -1,10 +1,12 @@
 # AppPointsSender documentation
 
 Points Sender is an application designed to manage student grades.
+## Table of Contents
+[Текст ссылки](#stud)
 
 ## Functions for students
 
-### 1. Viewing grades
+### 1. Viewing grades <a name="stud"></a> 
 
 In order to display a list of their current grades, students should use the `/mypoints` command
 
