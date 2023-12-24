@@ -33,6 +33,8 @@ For example, a teacher has given a test and wants to grade it, so he needs to cr
 
 ![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/7facaf61-6b47-4a76-860f-04c9e4541cc3)
 
+Of particular note is the `RELOAD AUDIENCE` button, clicking on which downloads student data from the table `appquiz.survey_fields`. Note, that only students who completed the `studInfo` survey and answered `Yes` to the question `Would you like to receive the marks via this chat bot` are going to be downloaded downloaded.
+
 ### 2. Post Grades
 
 To add a grade to a student, you need to use the `/addpoints` command, after which the bot will ask you to select the required grade group, the student and the grade itself on a 10-point scale.
