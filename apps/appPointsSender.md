@@ -2,7 +2,7 @@
 
 Points Sender is an application designed to manage student grades.
 ## Table of Contents
-[Текст ссылки](#stud)
+[Functions for students](#stud)
 
 ## Functions for students
 
