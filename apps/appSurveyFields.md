@@ -8,6 +8,10 @@ In order for a user to access the polls menu, the `/me` command must be entered.
 
 ![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/6634f2f6-bf75-408c-9893-9d830eac928d)
 
+All available surveys are stored in a table `appquiz.survey_fields`
+
+![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/b888bbdb-e0d7-49dc-95d6-7d16c410a290)
+
 After selecting the language, the user is prompted to choose one of the available surveys. All surveys are stored in the database in the `appquiz.survey_fields` table.
 
 ![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/1a19dc97-a973-402b-a1d6-602a5434d2cd)
@@ -27,3 +31,5 @@ When the survey is complete, a message is shown to the user
 ![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/353e193f-14b9-4959-b393-5aed115be300)
 
 And all answers are written to the `appquiz.survey_fields_answers` table in the database
+
+![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/5978fded-a6df-44cc-8feb-ef6778eb5f27)
