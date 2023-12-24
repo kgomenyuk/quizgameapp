@@ -12,6 +12,10 @@ In order to display a list of their current grades, students should use the `/my
 
 ![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/5cc4cbcd-af69-4a25-a0d5-1daa1572ac47)
 
+All student grades are stored in a database table `appquiz.points_users`
+
+![image](https://github.com/kgomenyuk/quizgameapp/assets/22096074/9ed21412-d2bb-421f-bd74-90ab75569c2b)
+
 ## Functions for administrator
 
 ### 1. Add Grade Category
