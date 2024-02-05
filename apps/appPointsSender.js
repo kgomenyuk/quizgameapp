@@ -1102,10 +1102,10 @@ I will save the following grades:
 
     state.points.forEach(x => {
         const p = dictGrades[x.uid];
-        const newComment = x.comment != p.comment;
         if(p==null){
             msg.addItem(x.uid, x.name +" NEW "+x.points + "  (" + x.pointsCode + ")" + (x.comment != null?" +comment":""));
         }else{
+            const newComment = x.comment != p.comment;
             msg.addItem(x.uid, x.name +" " + p.pointsAmt + "->"+x.points + "  (" + x.pointsCode + ")" + (x.comment != null?" "+(newComment==true?"+":"") +"comment":""));
         }
     });
