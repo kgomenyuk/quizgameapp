@@ -1542,7 +1542,7 @@ postPoints = async (state) => {
        {upsert: true});
 
     // do not set isPosted = false if mark did not change
-    if(r.pointsAmt == state.pointsAmt && r.comment == state.comment){
+    if(r != null && ( r.pointsAmt == state.pointsAmt && r.comment == state.comment ) ){
         // nothing to do here
     }else {
         await MPoints.updateOne({
