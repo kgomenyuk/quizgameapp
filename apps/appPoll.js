@@ -14,6 +14,8 @@ const { MBot, MProfile, MQuizPlan, MAppSettings, MGameInstance } = require("../d
  * App responsible for poll functionality.
  */
 class AppPoll extends AppBase {
+    refCode = "";
+
     _init() {
 		this.app = "poll";
         this.isPublicAllowed = true;
@@ -53,6 +55,8 @@ class AppPoll extends AppBase {
 		
         this.pointsAdminId = settings.pointsAdminId;
         this.checkAdmin = settings.checkAdmin ?? true;
+
+        this.refCode = settings.refCode;
     }
 	
 	_getTriggers(){
@@ -67,6 +71,9 @@ class AppPoll extends AppBase {
 
         var listOpenedPollsTrigger = new TGCommandEventTrigger("poll_lst", this.listOpenedPollsCommand, null);
         listOpenedPollsTrigger.handlerFunction = this.list_open_polls;
+
+        // the first available handler will be used
+        
 
 		return [
 			createPollTrigger,

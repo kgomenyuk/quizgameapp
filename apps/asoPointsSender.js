@@ -47,6 +47,7 @@ class asoPointsSender {
 
     groupIds=[];
 
+    comment = "";
    }
    
  module.exports = { asoPointsSender };

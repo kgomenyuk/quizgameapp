@@ -944,7 +944,7 @@ step02_04 = async (s, ctx, state) => {
 
 //
 /**
- * bulk write
+ * bulk write ID:...%%G:...%%C:... \n
  * @param {SessionObject} s 
  * @param {Context} ctx 
  * @param {asoPointsSender} state 
@@ -961,15 +961,37 @@ step05_01 = async (s, ctx, state) => {
     var grade = ctx.message.text;
     grade = grade.substr(prefix.length+1);
 
-    var lines = grade.trim().split("\n").map(x=>x.split("  "));
+    var lines = grade.trim().split("\n").map(x=>x.split("%%"));
+    if(lines == null || lines[0]==''){
+        return false;
+    }
     // uid  points
     
     var points = lines.map(x=>{
+        var d = x.reduce((p,c)=>{
+            const i1 = c.indexOf(":");
+            if(i1>0){
+                switch(c.substr(0, i1)){
+                    case "C":
+                        p.comment = c.substr(i1+1);
+                    break;
+                    case "ID":
+                        p.uid = c.substr(i1+1);
+                    break;
+                    case "G":
+                        p.points = c.substr(i1+1);
+                    break;
+                }
+            }
+            return p;
+        }, {});
+
         return {
-            uid:x[0],
-            points:x[1],
+            uid:d.uid,
+            points:d.points,
             author: s.userId,
-            saved:false
+            saved:false,
+            comment: d.comment
         };
     });
 
@@ -1046,6 +1068,19 @@ step05_02 = async (s, ctx, state) => {
     if(state.points==null){
         return false;
     }
+
+
+    var users = state.points.map(x=>x.uid);
+    var grades = await MPointsQuery.getUsersPoints(state.refCode, grade, null, users);
+    var dictGrades = grades.reduce(( p, x)=>{
+        p[x.uid] = {
+            pointsAmt: x.pointsAmt, 
+            pointsCode: x.pointsCode,
+            comment: x.comment
+        };
+        return p;
+    }, {});
+
     var msgDef =
 `# GRADING
 ## CONFIRMATION
@@ -1066,7 +1101,13 @@ I will save the following grades:
 
 
     state.points.forEach(x => {
-        msg.addItem(x.uid, x.name +"   "+x.points + "  (" + x.pointsCode + ")");
+        const p = dictGrades[x.uid];
+        const newComment = x.comment != p.comment;
+        if(p==null){
+            msg.addItem(x.uid, x.name +" NEW "+x.points + "  (" + x.pointsCode + ")" + (x.comment != null?" +comment":""));
+        }else{
+            msg.addItem(x.uid, x.name +" " + p.pointsAmt + "->"+x.points + "  (" + x.pointsCode + ")" + (x.comment != null?" "+(newComment==true?"+":"") +"comment":""));
+        }
     });
 
     await screen.postMessage(ctx, "CONFIRMATION", s.userId);
@@ -1113,6 +1154,7 @@ step05_03_ok = async (s, ctx, state) => {
         state.author = s.userId;
         state.pointsAmt = pts.points;
         state.pointsCode = pts.pointsCode;
+        state.comment = pts.comment;
         await this.postPoints(state);
     }
     
@@ -1208,13 +1250,18 @@ step06_02 = async (s, ctx, state) => {
 
     await ctx.reply("Ok. You have chosen " + grade);
 
-    state.points = await MPointsQuery.getUsersPoints(this.refCode, state.pointsCode);
+    // how many?
 
-    if(state.points==null){
+    // other types of messages? notifications, tasks, etc.
+
+    state.points = await MPointsQuery.getUsersPoints(this.refCode, state.pointsCode, false);
+
+    if(state.points==null || state.points.length == 0){
+        await ctx.reply("New marks were not found");
         return false;
     }
 
-
+    
     let counter = 0;
     for (const x of state.points) {
         
@@ -1222,7 +1269,9 @@ step06_02 = async (s, ctx, state) => {
 `# RESULTS
 ## GRADE_HTML
 Dear {{ Name | Name of User | }}, your grade for {{ Mark | Name of mark | }} is {{ Points | Student mark | }}
-<a href='http://t.me/${botInfo.userName}?start=C-${this.currentAlias}-${this.feedbackCommand}-${this.refCode}-${grade}'>press to write feedback</a>`;
+{{Comments | Comments | }}
+
+<a href='http://t.me/${botInfo.userName}?start=C-${this.currentAlias}-${this.feedbackCommand}-${this.refCode}-${grade}'>press to rate this assignment</a>`;
 
         if(x.timePosted != null && x.timePosted >= x.timeChanged){
             continue;
@@ -1232,6 +1281,9 @@ Dear {{ Name | Name of User | }}, your grade for {{ Mark | Name of mark | }} is 
         msg.setPlaceholder("Name", x.user.fname + " " + x.user.lname);
         msg.setPlaceholder("Mark", x.pointsCode);
         msg.setPlaceholder("Points", x.pointsAmt);
+        if(x.comment != null && x.comment != ''){
+            msg.setPlaceholder("Comments", x.comment);
+        }
 
         await UIScreen.postMessageObj(ctx, msg);
 
@@ -1239,13 +1291,14 @@ Dear {{ Name | Name of User | }}, your grade for {{ Mark | Name of mark | }} is 
         await MPoints.updateOne({ _id: x._id },
              {
                 $set:{
-                    timePosted: new Date()
+                    timePosted: new Date(),
+                    isPosted: true
                 }
              }).exec();
 
         counter++;
 
-        if(counter > 0 && counter % 28 === 0){ // no more than 30 messages per second
+        if(counter > 0 && counter % 27 === 0){ // no more than 30 messages per second
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
@@ -1463,7 +1516,7 @@ step07_03 = async (s, ctx, state) => {
 }
 
 /**
- * Set survey code
+ * post or update one grade
  * @param {asoPointsSender} state 
  */
 postPoints = async (state) => {
@@ -1473,8 +1526,8 @@ postPoints = async (state) => {
 	state.currentGrade.refCode = state.refCode;
 	state.currentGrade._id = new ObjectId();
 	
-    // create an empty record
-	var r = await MPoints.updateOne({
+    // create an empty record if there is no grade record
+	var r = await MPoints.findOneAndUpdate({
         uid : state.uid,
         refCode : state.refCode,
         pointsCode : state.pointsCode
@@ -1482,32 +1535,39 @@ postPoints = async (state) => {
        {
         $setOnInsert: { uid: state.uid, 
                 refCode: state.refCode, 
-                pointsCode: state.pointsCode, 
-                isPosted: false
+                pointsCode: state.pointsCode,
+                timeAttempt: new Date()
             }
        },
        {upsert: true});
 
-    await MPoints.updateOne({
-        uid : state.uid,
-        refCode : state.refCode,
-        pointsCode : state.pointsCode
-      }, {
-        $set: { 
-            isPosted: false, 
-            author: state.author,
-            pointsAmt: state.pointsAmt,
-            hasNewChanges: true,
-            timeChanged: new Date()
-        },
-        $push: {
-            history: { 
-                timeChanged:new Date(), 
-                pointsAmt:state.pointsAmt,
-                author: state.author
+    // do not set isPosted = false if mark did not change
+    if(r.pointsAmt == state.pointsAmt && r.comment == state.comment){
+        // nothing to do here
+    }else {
+        await MPoints.updateOne({
+            uid : state.uid,
+            refCode : state.refCode,
+            pointsCode : state.pointsCode
+        }, {
+            $set: { 
+                isPosted: false,  // mark the record as unpublished
+                author: state.author,
+                pointsAmt: state.pointsAmt,
+                hasNewChanges: true,
+                timeChanged: new Date(),
+                timeAttempt: new Date(),
+                comment: state.comment
+            },
+            $push: {
+                history: { 
+                    timeChanged:new Date(), 
+                    pointsAmt:state.pointsAmt,
+                    author: state.author
+                }
             }
-        }
-       });
+        });
+    }
 	
 	state.id = state.currentGrade._id;
 }

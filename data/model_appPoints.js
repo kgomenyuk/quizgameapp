@@ -15,16 +15,19 @@ const CPoints = new m.Schema(
         timeChanged: Date,
         uid: String, // user that will receive the points
         pointsAmt: Number, // points won
+        comment: String, // comments
         history:[{
             timeChanged: Date,
             pointsAmt: Number,
-            author: String
+            author: String,
+            comment: String
         }],
         feedback:[{
           timeChanged: Date, 
           text: String,
           rating: Number
-        }]
+        }],
+        timeAttempt: Date // when grading was started for this record
     }
 );
 
@@ -300,17 +303,38 @@ class MPointsQuery {
       return result;
     }
 
-    static async getUsersPoints(refCode, pointsCode){
+    // isPosted - true (get published grades), false (get unpublished grades)
+    /**
+     * 
+     * @param {string} refCode 
+     * @param {string} pointsCode 
+     * @param {boolean} isPosted 
+     * @param {[String]} userIds
+     * @returns  {[]}
+     */
+    static async getUsersPoints(refCode, pointsCode, isPosted, userIds){
+      const m1 = userIds==null? {
+        refCode: refCode,
+        pointsCode: pointsCode,
+        isPosted: isPosted
+      }:            {
+        refCode: refCode,
+        pointsCode: pointsCode,
+        isPosted: isPosted,
+        uid: { $in:userIds }
+      };
+
+      if(isPosted == null){
+        delete m1["isPosted"];
+      }
+
       var query = [
         {
           $match:
             /**
              * query: The query in MQL.
              */
-            {
-              refCode: refCode,
-              pointsCode: pointsCode,
-            },
+            m1,
         },
         {
           $project:
@@ -326,7 +350,8 @@ class MPointsQuery {
               timeChanged: 1,
               pointsCode: 1,
               timeChanged: 1, 
-              timePosted: 1
+              timePosted: 1,
+              comment: 1
             },
         },
         {
@@ -378,6 +403,7 @@ class MPointsQuery {
               timeChanged: 1,
               pointsCode: 1,
               timePosted: 1,
+              comment:1,
               user: {
                 $arrayElemAt: ["$user", 0]
               }
