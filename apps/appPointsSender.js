@@ -1292,7 +1292,8 @@ Dear {{ Name | Name of User | }}, your grade for {{ Mark | Name of mark | }} is 
              {
                 $set:{
                     timePosted: new Date(),
-                    isPosted: true
+                    isPosted: true,
+                    errorSendingText: msg.errorSendingText
                 }
              }).exec();
 
@@ -1319,9 +1320,9 @@ step07_01 = async (s, ctx, state) => {
     `# FEEDBACK
 ## APPEAL
 Please, write a brief message (<1000 characters) and/or press a button below:
-1 - did not like the assignment or grade
-2 - the assignment was ok
-3 - the assignment was interesting and informative
+1 - did not like the presentation, assignment or grade
+2 - it was ok
+3 - the presentation or assignment was interesting and informative
 Subject: {{ Grade | grade name | }}
 Mark: {{ PointsAmt | current points amount | }}
 {{ ResultStatus | statis | }}

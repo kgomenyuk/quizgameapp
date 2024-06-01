@@ -27,7 +27,8 @@ const CPoints = new m.Schema(
           text: String,
           rating: Number
         }],
-        timeAttempt: Date // when grading was started for this record
+        timeAttempt: Date, // when grading was started for this record
+        errorSendingText: String // error message when sending
     }
 );
 
